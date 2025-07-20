@@ -1,6 +1,6 @@
 # syntax=docker.io/docker/dockerfile:1
 
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.19
+ARG BUILD_FROM=homeassistant/amd64-addon-base:latest
 FROM golang:1.21-alpine AS builder
 
 # Set working directory
@@ -15,17 +15,19 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o ms-mqtt-adapter ./cmd/ms-mqtt-adapter
+# Build the application for the target architecture
+ARG TARGETARCH
+ARG TARGETOS
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o ms-mqtt-adapter ./cmd/ms-mqtt-adapter
 
-# Final stage
+# Final stage - use Home Assistant add-on base
 FROM ${BUILD_FROM}
-
-# Install runtime dependencies
-RUN apk --no-cache add ca-certificates tzdata
 
 # Copy binary from builder
 COPY --from=builder /app/ms-mqtt-adapter /usr/local/bin/ms-mqtt-adapter
+
+# Copy example config
+COPY config.example.yaml /usr/local/bin/config.example.yaml
 
 # Copy run script
 COPY rootfs /
