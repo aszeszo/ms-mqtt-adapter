@@ -25,17 +25,25 @@ jobs:
         arch:
           - amd64
           - aarch64
+          - armhf
           - armv7
+          - i386
         include:
           - arch: amd64
             platform: linux/amd64
-            base_image: homeassistant/amd64-addon-base:latest
+            base_image: ghcr.io/home-assistant/amd64-base:latest
           - arch: aarch64
             platform: linux/arm64
-            base_image: homeassistant/aarch64-addon-base:latest
+            base_image: ghcr.io/home-assistant/aarch64-base:latest
+          - arch: armhf
+            platform: linux/arm/v6
+            base_image: ghcr.io/home-assistant/armhf-base:latest
           - arch: armv7
             platform: linux/arm/v7
-            base_image: homeassistant/armv7-addon-base:latest
+            base_image: ghcr.io/home-assistant/armv7-base:latest
+          - arch: i386
+            platform: linux/386
+            base_image: ghcr.io/home-assistant/i386-base:latest
 
     steps:
       - name: Checkout repository
@@ -114,4 +122,6 @@ jobs:
           docker buildx imagetools create -t ${IMAGE_BASE}:${VERSION} \
             ${IMAGE_BASE}:${VERSION}-amd64 \
             ${IMAGE_BASE}:${VERSION}-aarch64 \
-            ${IMAGE_BASE}:${VERSION}-armv7
+            ${IMAGE_BASE}:${VERSION}-armhf \
+            ${IMAGE_BASE}:${VERSION}-armv7 \
+            ${IMAGE_BASE}:${VERSION}-i386
