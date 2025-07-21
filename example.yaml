@@ -37,8 +37,8 @@ devices:
   - name: "Relay 3 #1"
     id: "relay_3_1"
     node_id: 1
-    manufacturer: "DIY"
-    model: "Arduino Nano"
+    manufacturer: "Nippy"
+    model: "Nippy"
     sw_version: "1.0"
     hw_version: "1.0"
     relays:
@@ -64,8 +64,8 @@ devices:
   - name: "Input 6 #1"
     id: "input_6_1"
     node_id: 2
-    manufacturer: "DIY"
-    model: "Arduino Pro Mini"
+    manufacturer: "Nippy"
+    model: "Nippy"
     sw_version: "1.0"
     hw_version: "1.0"
     inputs:
@@ -97,8 +97,8 @@ devices:
   - name: "Relay 3 #2"
     id: "relay_3_2"
     node_id: 3
-    manufacturer: "DIY"
-    model: "Arduino Nano"
+    manufacturer: "Nippy"
+    model: "Nippy"
     sw_version: "1.0"
     hw_version: "1.0"
     relays:
@@ -124,8 +124,8 @@ devices:
   - name: "Relay 9 #2"
     id: "relay_9_2"
     node_id: 100
-    manufacturer: "DIY"
-    model: "Arduino Mega"
+    manufacturer: "Nippy"
+    model: "Nippy"
     sw_version: "1.0"
     hw_version: "1.0"
     relays:
