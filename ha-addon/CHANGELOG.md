@@ -5,10 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-07-20
+## [1.0.0] - 2025-07-21
 
 ### Added
-- Initial release of MySensors MQTT Adapter
+- Initial release of MySensors MQTT Adapter Home Assistant add-on
 - MySensors to MQTT bridge functionality
 - Home Assistant auto-discovery support (optional)
 - Support for relays with 1:1 mapping
@@ -35,18 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Monitoring**: Sorted seen_nodes topic for network visibility
 
 ### Technical Details
-- Built with Go 1.21
-- Multi-stage Docker builds for optimal image size
-- GitHub Actions for automated multi-arch builds
-- Home Assistant add-on compatibility
+- Uses pre-built multi-architecture Docker images
+- Supports all Home Assistant architectures
 - Comprehensive configuration validation
 - Thread-safe state management
 - Graceful shutdown handling
 
 ### Development
 - Entire project "vibe coded" using Claude Code AI assistant
-- Test-driven development approach
-- Comprehensive error handling and logging
 - Production-ready architecture and patterns
 
 [1.0.0]: https://github.com/aszeszo/ms-mqtt-adapter/releases/tag/v1.0.0

@@ -1,174 +1,102 @@
-# ms-mqtt-adapter
+# MySensors MQTT Adapter - Home Assistant Add-on Repository
 
-A bridge between MySensors network and MQTT with Home Assistant auto-discovery support.
+This repository contains a Home Assistant add-on that bridges MySensors networks with MQTT, providing automatic device discovery for Home Assistant.
 
-*This project was "vibe coded" using [Claude Code](https://claude.ai/code) - an AI-powered development tool that helped design, implement, and debug the entire codebase through natural language conversations.*
+## Installation
 
-## Features
+### Adding the Repository
 
-- **MySensors to MQTT Bridge**: Seamlessly bridges MySensors network with MQTT broker
-- **Home Assistant Auto-Discovery**: Automatically publishes device configurations for Home Assistant (optional)
-- **Flexible Device Mapping**: Support for relays (1:1 mapping) and inputs (many-to-many mapping)
-- **State Persistence**: Honors retained MQTT messages over configuration defaults
-- **Immediate Command Processing**: Real-time MySensors command sending via MQTT /set topics
-- **TCP Service**: Optional TCP service for MySensors message replication and forwarding
-- **Gateway Functions**: Acts as MySensors gateway with node ID assignment and time synchronization
-- **Periodic State Sync**: Ensures MQTT and MySensors states remain synchronized
-- **Pluggable Transports**: Ethernet gateway support with RS485 stub for future expansion
-- **Composite Keys**: Supports non-unique subdevice IDs across different devices
+1. In Home Assistant, go to **Settings** → **Add-ons** → **Add-on Store**
+2. Click the **⋮** menu (three dots) in the top right
+3. Select **Repositories**
+4. Add this URL: `https://github.com/aszeszo/ms-mqtt-adapter`
+5. Click **Add** and wait for the repository to be processed
+
+### Installing the Add-on
+
+1. After adding the repository, refresh the Add-on Store
+2. Find "MySensors MQTT Adapter" in the store
+3. Click on it and select **Install**
+4. Wait for the installation to complete
 
 ## Configuration
 
-Create a `config.yaml` file based on `config.example.yaml`:
+Before starting the add-on, configure it in the **Configuration** tab:
+
+### Basic Configuration
 
 ```yaml
-log_level: "info"  # debug, info, warn, error
-
-mysensors:
-  transport: "ethernet"  # ethernet, rs485
-  ethernet:
-    host: "192.168.1.100"
-    port: 5003
-
-mqtt:
-  broker: "localhost"
-  port: 1883
-  username: ""
-  password: ""
-  client_id: "ms-mqtt-adapter"
-
-adapter:
-  topic_prefix: "ms-mqtt-adapter"
-  homeassistant_discovery: true  # Enable/disable HomeAssistant auto-discovery
-
-gateway:
-  version_request_period: "5s"  # How often to send version requests to gateway
-
-devices:
-  - name: "Relay Device"
-    id: "relay_device_1"
-    node_id: 1
-    relays:
-      - name: "Relay 1"
-        id: "relay_1"
-        child_id: 0
-        initial_state: 0  # 0=OFF, 1=ON (only used if no retained MQTT state)
-        icon: "hue:socket-eu"
-        device_class: "switch"
-    inputs:
-      - name: "Button 1"
-        id: "button_1"
-        child_id: 1
-        icon: "hue:friends-of-hue-senic"
-
-# ... see config.example.yaml for full configuration
+mysensors_host: "192.168.1.100"  # Your MySensors gateway IP
+mysensors_port: 5003
+mqtt_broker: core-mosquitto      # Use HA's built-in broker
+mqtt_port: 1883
+mqtt_username: ""                # Optional
+mqtt_password: ""                # Optional
+topic_prefix: ms-mqtt-adapter
+homeassistant_discovery: true
 ```
 
-## Building and Running
+### Advanced Options
 
-```bash
-# Build the application
-go build -o ms-mqtt-adapter cmd/ms-mqtt-adapter/main.go
+- **log_level**: Set to `debug` for troubleshooting
 
-# Run with default config
-./ms-mqtt-adapter
+## Features
 
-# Run with custom config
-./ms-mqtt-adapter -config /path/to/config.yaml
-```
+- 🔄 **Automatic Discovery**: Devices appear automatically in Home Assistant
+- 🏠 **Full HA Integration**: Native Home Assistant device support
+- ⚡ **Real-time Control**: Immediate command processing
+- 🔄 **State Persistence**: Device states survive restarts
+- 🌐 **Multi-platform**: Supports all Home Assistant architectures
+- 🛠️ **Gateway Functions**: Node ID assignment and time sync
 
-## Project Structure
+## Device Types Supported
 
-```
-ms-mqtt-adapter/
-├── cmd/ms-mqtt-adapter/     # Main application
-├── pkg/
-│   ├── config/              # Configuration management
-│   ├── transport/           # MySensors transport layer
-│   ├── mqtt/                # MQTT client and Home Assistant integration
-│   ├── tcp/                 # TCP service for message replication
-│   └── gateway/             # MySensors gateway functionality
-├── internal/
-│   ├── mysensors/           # MySensors message parsing
-│   └── events/              # Event handling and synchronization
-└── config.example.yaml      # Example configuration
-```
-
-## MySensors Protocol
-
-The adapter handles MySensors message format:
-```
-node-id;child-sensor-id;message-type;ack;sub-type;payload
-```
-
-### Supported Message Types
-- **SET**: Sensor data updates
-- **REQ**: Data requests
-- **INTERNAL**: Gateway functions (ID assignment, time sync)
-- **PRESENTATION**: Device/sensor registration
-
-### Gateway Functions
-- **Node ID Assignment**: Responds to `I_ID_REQUEST` messages
-- **Time Synchronization**: Responds to `I_TIME` requests
-- **Version Requests**: Periodically sends version requests to gateway (configurable period)
+- **Relays/Switches**: 1:1 mapping with MySensors nodes
+- **Inputs/Sensors**: Many-to-many mapping support
+- **Binary Sensors**: Motion, door/window sensors, etc.
 
 ## MQTT Topics
 
-### Device Topics (New Structure)
-- `{topic_prefix}/devices/{device_id}/relay/{relay_id}/state` - Relay state
-- `{topic_prefix}/devices/{device_id}/relay/{relay_id}/set` - Relay control
-- `{topic_prefix}/devices/{device_id}/input/{input_id}/state` - Input state
+The add-on creates organized topic structure:
+- `ms-mqtt-adapter/devices/{device}/relay/{relay}/state`
+- `ms-mqtt-adapter/devices/{device}/relay/{relay}/set`
+- `ms-mqtt-adapter/devices/{device}/input/{input}/state`
 
-### Home Assistant Discovery (Optional)
-- `homeassistant/switch/{device_id}_{relay_id}/config` - Switch discovery
-- `homeassistant/binary_sensor/{device_id}_{input_id}/config` - Input discovery
+## Troubleshooting
 
-### Adapter Status
-- `{topic_prefix}/seen_nodes` - Comma-separated list of discovered node IDs (sorted)
+### Common Issues
 
-## Key Features
+1. **Gateway Connection Failed**
+   - Verify MySensors gateway IP and port
+   - Check network connectivity
 
-### State Persistence
-- **Retained MQTT messages** take precedence over config `initial_state`
-- Only applies config `initial_state` when no retained state exists
-- Ensures state survives restarts and reconnections
+2. **MQTT Issues**
+   - Ensure Mosquitto broker is running
+   - Check MQTT credentials if authentication is enabled
 
-### Device Mapping
-- **Relays**: 1:1 mapping (one MySensors node:child maps to one relay)
-- **Inputs**: Many-to-many mapping (one MySensors node:child can map to multiple inputs)
-- **Composite Keys**: `{device_id}_{subdevice_id}` allows non-unique subdevice IDs
+3. **Devices Not Appearing**
+   - Verify `homeassistant_discovery` is enabled
+   - Check add-on logs for errors
 
-### Immediate Command Processing
-- Commands sent to `/set` topics are processed immediately
-- MySensors messages sent in real-time (not just during sync cycles)
-- State changes reflected immediately in MQTT
+### Getting Help
 
-## Value Format
-- All MQTT payloads use **0/1 format** (not ON/OFF)
-- Compatible with HomeAssistant expectations
-- Consistent across all device types
+- **Logs**: Check add-on logs in the **Log** tab
+- **Debug Mode**: Set `log_level: debug` for detailed information
+- **Issues**: Report problems on [GitHub](https://github.com/aszeszo/ms-mqtt-adapter/issues)
 
-## Logging
+## Architecture Support
 
-Log levels: `debug`, `info`, `warn`, `error`
+This add-on supports all Home Assistant platforms:
+- amd64 (Intel/AMD 64-bit)
+- aarch64 (ARM 64-bit)
+- armv7 (ARM 32-bit)
+- armhf (ARM hard-float)
+- i386 (Intel 32-bit)
 
-Debug mode logs:
-- MySensors RX/TX messages
-- MQTT RX/TX messages  
-- State management operations
-- Discovery process details
+## Development
 
-## TCP Service
-
-When enabled, provides a TCP service on configurable port (default 5003) that:
-- Replicates all MySensors messages to connected clients
-- Accepts messages from clients and forwards to MySensors network
-- Useful for debugging and additional integrations
-
-## Development Note
-
-This entire project was developed using Claude Code, demonstrating the power of AI-assisted software development. From initial architecture discussions to bug fixes and feature implementations, the codebase evolved through natural language conversations with the AI, showcasing how modern development tools can accelerate the creation of complex, production-ready software.
+This project was developed using Claude Code AI assistant, demonstrating modern AI-assisted software development practices.
 
 ## License
 
-MIT License
+MIT License - see repository for details.

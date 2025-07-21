@@ -17,45 +17,29 @@ This add-on provides a seamless bridge between your MySensors network and MQTT, 
 
 Configure your MySensors gateway connection:
 
-```yaml
-mysensors:
-  transport: ethernet
-  ethernet:
-    host: "192.168.1.100"  # IP address of your MySensors Ethernet gateway
-    port: 5003             # Port of your MySensors gateway
-```
+- **mysensors_host**: IP address of your MySensors Ethernet gateway (e.g., "192.168.1.100")
+- **mysensors_port**: Port of your MySensors gateway (default: 5003)
 
 ### MQTT Configuration
 
 Configure MQTT broker connection:
 
-```yaml
-mqtt:
-  broker: core-mosquitto    # Use Home Assistant's built-in Mosquitto broker
-  port: 1883
-  username: ""              # Leave empty if no authentication
-  password: ""              # Leave empty if no authentication  
-  client_id: ms-mqtt-adapter
-```
+- **mqtt_broker**: MQTT broker hostname (use "core-mosquitto" for HA's built-in broker)
+- **mqtt_port**: MQTT broker port (default: 1883)
+- **mqtt_username**: MQTT username (leave empty if no authentication)
+- **mqtt_password**: MQTT password (leave empty if no authentication)
 
 ### Add-on Options
 
 - **log_level**: Set logging level (debug, info, warn, error)
-- **tcp_service.enabled**: Enable TCP service for message replication
-- **sync.enabled**: Enable periodic state synchronization
-- **sync.period**: How often to sync states (e.g., "30s")
-- **adapter.homeassistant_discovery**: Enable automatic device discovery
-- **adapter.topic_prefix**: MQTT topic prefix for device topics
+- **topic_prefix**: MQTT topic prefix for device topics (default: "ms-mqtt-adapter")
+- **homeassistant_discovery**: Enable automatic device discovery (default: true)
 
 ## Device Configuration
 
 Since this is a Home Assistant add-on, device configuration is currently handled through the config file. Future versions may include a web UI for device management.
 
-For now, you can:
-1. Stop the add-on
-2. Edit the configuration in the add-on configuration tab
-3. Add your devices to the `devices` section following the example format
-4. Restart the add-on
+For now, you need to configure your devices in the application's configuration file within the container.
 
 ## MQTT Topics
 

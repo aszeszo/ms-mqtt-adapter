@@ -1,0 +1,42 @@
+name: MySensors MQTT Adapter
+version: "1.0.0"
+slug: ms_mqtt_adapter
+description: Bridge between MySensors network and MQTT with Home Assistant auto-discovery
+url: https://github.com/aszeszo/ms-mqtt-adapter
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: application
+boot: auto
+init: false
+image: ghcr.io/aszeszo/ms-mqtt-adapter:latest
+map:
+  - share:rw
+  - ssl
+ports:
+  5003/tcp: 5003
+ports_description:
+  5003/tcp: TCP service for MySensors message replication
+options:
+  log_level: info
+  mysensors_host: "192.168.1.100"
+  mysensors_port: 5003
+  mqtt_broker: core-mosquitto
+  mqtt_port: 1883
+  mqtt_username: ""
+  mqtt_password: ""
+  topic_prefix: ms-mqtt-adapter
+  homeassistant_discovery: true
+schema:
+  log_level: list(debug|info|warn|error)
+  mysensors_host: str
+  mysensors_port: port
+  mqtt_broker: str
+  mqtt_port: port
+  mqtt_username: str?
+  mqtt_password: password?
+  topic_prefix: str
+  homeassistant_discovery: bool
