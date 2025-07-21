@@ -12,7 +12,7 @@ arch:
 startup: application
 boot: auto
 init: false
-image: docker.io/library/nginx:1.29.0
+image: ghcr.io/aszeszo/ms-mqtt-adapter:1
 map:
   - share:rw
   - ssl
