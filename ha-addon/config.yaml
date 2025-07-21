@@ -12,7 +12,7 @@ arch:
 startup: application
 boot: auto
 init: false
-image: ghcr.io/aszeszo/ms-mqtt-adapter:1
+image: ghcr.io/aszeszo/ms-mqtt-adapter
 map:
   - share:rw
   - ssl
