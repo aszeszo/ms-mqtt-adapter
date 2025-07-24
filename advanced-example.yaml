@@ -72,6 +72,10 @@ devices:
         entity_category: "diagnostic"
         enabled_by_default: false
         availability_topic: "ms-mqtt-adapter/devices/relay_controller_1/availability"
+        payload_on: "ENABLE"    # Custom payloads for this relay
+        payload_off: "DISABLE"
+        state_on: "ENABLE"
+        state_off: "DISABLE"
         qos: 0
         retain: false
         optimistic: true

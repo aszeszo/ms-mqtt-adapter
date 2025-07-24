@@ -9,10 +9,10 @@ mysensors:
     device: "/dev/ttyUSB0"
 
 mqtt:
-  broker: "172.24.0.244"
+  broker: "172.24.0.243"
   port: 1883
-  username: ""
-  password: ""
+  username: "nippy"
+  password: "nippy"
   client_id: "ms-mqtt-adapter"
 
 tcp_service:
@@ -32,6 +32,7 @@ gateway:
 adapter:
   topic_prefix: "ms-mqtt-adapter"
   homeassistant_discovery: true  # Enable/disable HomeAssistant auto-discovery
+  optimistic_mode: false
 
 devices:
   - name: "Relay 3 #1"

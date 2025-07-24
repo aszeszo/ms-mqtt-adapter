@@ -59,6 +59,7 @@ type GatewayConfig struct {
 type AdapterConfig struct {
 	TopicPrefix            string `yaml:"topic_prefix"`
 	HomeAssistantDiscovery *bool  `yaml:"homeassistant_discovery,omitempty"`
+	OptimisticMode         *bool  `yaml:"optimistic_mode,omitempty"`
 }
 
 type Device struct {
@@ -90,6 +91,10 @@ type Relay struct {
 	AvailabilityTopic     string            `yaml:"availability_topic,omitempty"`
 	PayloadAvailable      string            `yaml:"payload_available,omitempty"`
 	PayloadNotAvailable   string            `yaml:"payload_not_available,omitempty"`
+	PayloadOn             string            `yaml:"payload_on,omitempty"`
+	PayloadOff            string            `yaml:"payload_off,omitempty"`
+	StateOn               string            `yaml:"state_on,omitempty"`
+	StateOff              string            `yaml:"state_off,omitempty"`
 	QOS                   *int              `yaml:"qos,omitempty"`
 	Retain                *bool             `yaml:"retain,omitempty"`
 	Optimistic            *bool             `yaml:"optimistic,omitempty"`
@@ -111,6 +116,10 @@ type Input struct {
 	AvailabilityTopic     string `yaml:"availability_topic,omitempty"`
 	PayloadAvailable      string `yaml:"payload_available,omitempty"`
 	PayloadNotAvailable   string `yaml:"payload_not_available,omitempty"`
+	PayloadOn             string `yaml:"payload_on,omitempty"`
+	PayloadOff            string `yaml:"payload_off,omitempty"`
+	StateOn               string `yaml:"state_on,omitempty"`
+	StateOff              string `yaml:"state_off,omitempty"`
 	QOS                   *int   `yaml:"qos,omitempty"`
 	OffDelay              *int   `yaml:"off_delay,omitempty"`
 	ExpireAfter           *int   `yaml:"expire_after,omitempty"`
@@ -223,6 +232,12 @@ func setDefaults(config *Config) {
 	if config.AdapterTopics.HomeAssistantDiscovery == nil {
 		enabled := true
 		config.AdapterTopics.HomeAssistantDiscovery = &enabled
+	}
+
+	// Default to non-optimistic mode (wait for device confirmation) if not explicitly set
+	if config.AdapterTopics.OptimisticMode == nil {
+		optimistic := false
+		config.AdapterTopics.OptimisticMode = &optimistic
 	}
 
 	for i := range config.Devices {

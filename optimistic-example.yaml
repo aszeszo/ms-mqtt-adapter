@@ -1,0 +1,104 @@
+log_level: "info"
+
+mysensors:
+  transport: "ethernet"
+  ethernet:
+    host: "172.30.15.1"
+    port: 5003
+
+mqtt:
+  broker: "172.24.0.243"
+  port: 1883
+  username: "nippy"
+  password: "nippy"
+  client_id: "ms-mqtt-adapter"
+
+tcp_service:
+  enabled: true
+  port: 5003
+
+sync:
+  enabled: true
+  period: "30s"
+
+gateway:
+  node_id_range:
+    start: 1
+    end: 254
+  version_request_period: "5s"
+
+adapter:
+  topic_prefix: "ms-mqtt-adapter"
+  homeassistant_discovery: true
+  optimistic_mode: false  # Global default: wait for device confirmation
+
+devices:
+  # Device with mixed optimistic settings
+  - name: "Smart Home Controller"
+    id: "controller_1"
+    node_id: 1
+    manufacturer: "Nippy"
+    model: "Controller Pro"
+    sw_version: "2.0"
+    hw_version: "1.0"
+    relays:
+      # Uses global optimistic_mode: false (waits for confirmation)
+      - name: "Main Light"
+        id: "main_light"
+        child_id: 0
+        initial_state: 0
+        icon: "mdi:lightbulb"
+        device_class: "switch"
+        
+      # Override to optimistic mode for fast response
+      - name: "Instant Switch"
+        id: "instant_switch"
+        child_id: 1
+        initial_state: 0
+        icon: "mdi:flash"
+        device_class: "switch"
+        optimistic: true  # Override: immediate response, don't wait
+        
+      # Explicitly non-optimistic for critical relay
+      - name: "Security System"
+        id: "security_system"
+        child_id: 2
+        initial_state: 0
+        icon: "mdi:security"
+        device_class: "switch"
+        optimistic: false  # Explicit: must wait for device confirmation
+
+  # Device configured for global optimistic mode
+  - name: "Fast Response Hub"
+    id: "fast_hub"
+    node_id: 2
+    manufacturer: "Nippy"
+    model: "Fast Hub"
+    sw_version: "1.5"
+    hw_version: "1.0"
+    relays:
+      # All relays will use global optimistic_mode setting
+      - name: "LED Strip 1"
+        id: "led_1"
+        child_id: 0
+        initial_state: 0
+        icon: "mdi:led-strip-variant"
+        device_class: "switch"
+        
+      - name: "LED Strip 2"
+        id: "led_2"
+        child_id: 1
+        initial_state: 0
+        icon: "mdi:led-strip-variant"
+        device_class: "switch"
+
+# Alternative configuration with global optimistic mode enabled
+# adapter:
+#   topic_prefix: "ms-mqtt-adapter"
+#   homeassistant_discovery: true
+#   optimistic_mode: true  # Global default: immediate response
+#
+# In this case:
+# - All relays respond immediately unless explicitly set to optimistic: false
+# - Good for fast UI response when you trust your MySensors network
+# - Individual relays can still override with optimistic: false for critical controls

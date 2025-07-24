@@ -267,16 +267,36 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 			"unique_id":     fmt.Sprintf("%s_%s", device.ID, relay.ID),
 			"command_topic": fmt.Sprintf("%s/devices/%s/relay/%s/set", c.adapterCfg.TopicPrefix, device.ID, relay.ID),
 			"state_topic":   fmt.Sprintf("%s/devices/%s/relay/%s/state", c.adapterCfg.TopicPrefix, device.ID, relay.ID),
-			"payload_on":    "1",
-			"payload_off":   "0",
-			"state_on":      "1",
-			"state_off":     "0",
 			"device":        deviceInfo,
+		}
+
+		// Set payload and state values with defaults
+		if relay.PayloadOn != "" {
+			config["payload_on"] = relay.PayloadOn
+		} else {
+			config["payload_on"] = "1"
+		}
+		if relay.PayloadOff != "" {
+			config["payload_off"] = relay.PayloadOff
+		} else {
+			config["payload_off"] = "0"
+		}
+		if relay.StateOn != "" {
+			config["state_on"] = relay.StateOn
+		} else {
+			config["state_on"] = "1"
+		}
+		if relay.StateOff != "" {
+			config["state_off"] = relay.StateOff
+		} else {
+			config["state_off"] = "0"
 		}
 
 		// Apply relay-specific configurations with defaults
 		if relay.Optimistic != nil {
 			config["optimistic"] = *relay.Optimistic
+		} else if c.adapterCfg.OptimisticMode != nil {
+			config["optimistic"] = *c.adapterCfg.OptimisticMode
 		} else {
 			config["optimistic"] = false
 		}
@@ -370,9 +390,25 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 			"name":        input.Name,
 			"unique_id":   fmt.Sprintf("%s_%s", device.ID, input.ID),
 			"state_topic": fmt.Sprintf("%s/devices/%s/input/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID),
-			"payload_on":  "1",
-			"payload_off": "0",
 			"device":      deviceInfo,
+		}
+
+		// Set payload and state values with defaults
+		if input.PayloadOn != "" {
+			config["payload_on"] = input.PayloadOn
+		} else {
+			config["payload_on"] = "1"
+		}
+		if input.PayloadOff != "" {
+			config["payload_off"] = input.PayloadOff
+		} else {
+			config["payload_off"] = "0"
+		}
+		if input.StateOn != "" {
+			config["state_on"] = input.StateOn
+		}
+		if input.StateOff != "" {
+			config["state_off"] = input.StateOff
 		}
 
 		// Apply input-specific configurations
