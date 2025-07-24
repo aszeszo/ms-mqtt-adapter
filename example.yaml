@@ -33,6 +33,7 @@ adapter:
   topic_prefix: "ms-mqtt-adapter"
   homeassistant_discovery: true  # Enable/disable HomeAssistant auto-discovery
   optimistic_mode: false
+  request_ack: true  # Request ACK bit to encourage device echoing (default: true)
 
 devices:
   - name: "Relay 3 #1"
@@ -136,18 +137,21 @@ devices:
         initial_state: 0
         icon: "hue:socket-eu"
         device_class: "switch"
-      - name: "Relay 2"
+        # Uses global optimistic_mode: false (waits for device confirmation)
+      - name: "Relay 2 (Fast)"
         id: "relay_2"
         child_id: 1
         initial_state: 0
         icon: "hue:socket-eu"
         device_class: "switch"
-      - name: "Relay 3"
+        optimistic: true  # Override: immediate response for fast UI
+      - name: "Relay 3 (Critical)"
         id: "relay_3"
         child_id: 2
         initial_state: 0
         icon: "hue:socket-eu"
         device_class: "switch"
+        optimistic: false  # Explicit: must wait for device confirmation
       - name: "Relay 4"
         id: "relay_4"
         child_id: 3

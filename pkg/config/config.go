@@ -60,6 +60,7 @@ type AdapterConfig struct {
 	TopicPrefix            string `yaml:"topic_prefix"`
 	HomeAssistantDiscovery *bool  `yaml:"homeassistant_discovery,omitempty"`
 	OptimisticMode         *bool  `yaml:"optimistic_mode,omitempty"`
+	RequestAck             *bool  `yaml:"request_ack,omitempty"`
 }
 
 type Device struct {
@@ -238,6 +239,12 @@ func setDefaults(config *Config) {
 	if config.AdapterTopics.OptimisticMode == nil {
 		optimistic := false
 		config.AdapterTopics.OptimisticMode = &optimistic
+	}
+	
+	// Default to request ACK (helps with device echoing) if not explicitly set
+	if config.AdapterTopics.RequestAck == nil {
+		requestAck := true
+		config.AdapterTopics.RequestAck = &requestAck
 	}
 
 	for i := range config.Devices {

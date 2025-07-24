@@ -197,6 +197,8 @@ func (app *Application) publishDiscovery() error {
 
 func (app *Application) handleMySensorsMessages() {
 	for message := range app.transport.Receive() {
+		app.logger.Debug("Received MySensors message", "message", message.String())
+
 		if app.tcpServer != nil {
 			app.tcpServer.BroadcastMessage(message)
 		}
@@ -243,13 +245,15 @@ func (app *Application) handleMQTTStateChanges() {
 					nodeID = *currentRelay.NodeID
 				}
 
-				message := mysensors.NewSetMessage(nodeID, currentRelay.ChildID, mysensors.V_STATUS, mysensorsState)
+				// Use configured ACK bit setting (default true to encourage device echoing)
+				requestAck := app.config.AdapterTopics.RequestAck != nil && *app.config.AdapterTopics.RequestAck
+				message := mysensors.NewSetMessageWithAck(nodeID, currentRelay.ChildID, mysensors.V_STATUS, mysensorsState, requestAck)
 				if err := app.transport.Send(message); err != nil {
 					app.logger.Error("Failed to send state change to MySensors", "error", err,
 						"device", deviceName, "component", componentName, "state", state)
 				} else {
-					app.logger.Info("State change sent to MySensors",
-						"device", deviceName, "component", componentName, "state", mysensorsState)
+					app.logger.Debug("MySensors command sent", "device", deviceName, "relay", componentName, 
+						"node_id", nodeID, "child_id", currentRelay.ChildID, "state", mysensorsState)
 				}
 			})
 		}

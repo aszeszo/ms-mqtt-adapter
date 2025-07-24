@@ -227,6 +227,17 @@ func NewSetMessage(nodeID, childID int, varType VariableType, payload string) *M
 	}
 }
 
+func NewSetMessageWithAck(nodeID, childID int, varType VariableType, payload string, ack bool) *Message {
+	return &Message{
+		NodeID:      nodeID,
+		ChildID:     childID,
+		MessageType: SET,
+		Ack:         ack,
+		SubType:     int(varType),
+		Payload:     payload,
+	}
+}
+
 func NewReqMessage(nodeID, childID int, varType VariableType) *Message {
 	return &Message{
 		NodeID:      nodeID,

@@ -175,14 +175,25 @@ func (c *Client) createRelayHandler(deviceName, relayName, compositeKey, deviceI
 			return
 		}
 
-		// Publish to device-specific state topic
-		deviceStateTopic := fmt.Sprintf("%s/devices/%s/relay/%s/state", c.adapterCfg.TopicPrefix, deviceID, relayID)
-		c.Publish(deviceStateTopic, payload, true)
+		// Check if relay is configured for optimistic mode
+		optimistic := c.getEffectiveOptimisticMode(deviceID, relayID)
 
-		c.stateMu.Lock()
-		c.states[compositeKey] = payload
-		c.stateMu.Unlock()
+		if optimistic {
+			// Optimistic mode: update MQTT state immediately (assume command will succeed)
+			deviceStateTopic := fmt.Sprintf("%s/devices/%s/relay/%s/state", c.adapterCfg.TopicPrefix, deviceID, relayID)
+			c.Publish(deviceStateTopic, payload, true)
 
+			c.stateMu.Lock()
+			c.states[compositeKey] = payload
+			c.stateMu.Unlock()
+
+			c.logger.Debug("Optimistic mode: updated MQTT state immediately", "device", deviceName, "relay", relayName, "state", payload)
+		} else {
+			// Non-optimistic mode: wait for MySensors device confirmation before updating MQTT state
+			c.logger.Debug("Non-optimistic mode: waiting for device confirmation", "device", deviceName, "relay", relayName, "command", payload)
+		}
+
+		// Always notify the handler to send MySensors command
 		if handler, exists := c.handlers[compositeKey]; exists {
 			handler(deviceName, relayName, payload)
 		}
@@ -191,6 +202,32 @@ func (c *Client) createRelayHandler(deviceName, relayName, compositeKey, deviceI
 
 func (c *Client) RegisterStateChangeHandler(uniqueID string, handler StateChangeHandler) {
 	c.handlers[uniqueID] = handler
+}
+
+// getEffectiveOptimisticMode determines the effective optimistic mode for a specific relay
+// Priority: per-relay setting > global setting > default (false)
+func (c *Client) getEffectiveOptimisticMode(deviceID, relayID string) bool {
+	// Find the device and relay configuration
+	for _, device := range c.devices {
+		if device.ID == deviceID {
+			for _, relay := range device.Relays {
+				if relay.ID == relayID {
+					// Check per-relay setting first (highest priority)
+					if relay.Optimistic != nil {
+						return *relay.Optimistic
+					}
+					// Fall back to global setting
+					if c.adapterCfg.OptimisticMode != nil {
+						return *c.adapterCfg.OptimisticMode
+					}
+					// Default to non-optimistic (false)
+					return false
+				}
+			}
+		}
+	}
+	// If device/relay not found, default to non-optimistic
+	return false
 }
 
 func (c *Client) Publish(topic, payload string, retain bool) error {
@@ -222,12 +259,26 @@ func (c *Client) SetState(uniqueID, state string) {
 func (c *Client) PublishDeviceState(device config.Device, relay config.Relay, state string) error {
 	// Publish to device-specific state topic
 	deviceStateTopic := fmt.Sprintf("%s/devices/%s/relay/%s/state", c.adapterCfg.TopicPrefix, device.ID, relay.ID)
+	
+	// Update internal state tracking
+	compositeKey := fmt.Sprintf("%s_%s", device.ID, relay.ID)
+	c.stateMu.Lock()
+	c.states[compositeKey] = state
+	c.stateMu.Unlock()
+	
 	return c.Publish(deviceStateTopic, state, true)
 }
 
 func (c *Client) PublishInputState(device config.Device, input config.Input, state string) error {
 	// Publish to device-specific state topic using 0/1 values with retain flag
 	deviceStateTopic := fmt.Sprintf("%s/devices/%s/input/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID)
+	
+	// Update internal state tracking
+	compositeKey := fmt.Sprintf("%s_%s", device.ID, input.ID)
+	c.stateMu.Lock()
+	c.states[compositeKey] = state
+	c.stateMu.Unlock()
+	
 	return c.Publish(deviceStateTopic, state, true)
 }
 
