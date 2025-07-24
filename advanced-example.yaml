@@ -1,0 +1,122 @@
+log_level: "info"  # debug, info, warn, error
+
+mysensors:
+  transport: "ethernet"  # ethernet, rs485
+  ethernet:
+    host: "172.30.15.1"
+    port: 5003
+
+mqtt:
+  broker: "172.24.0.244"
+  port: 1883
+  username: ""
+  password: ""
+  client_id: "ms-mqtt-adapter"
+
+tcp_service:
+  enabled: true
+  port: 5003
+
+sync:
+  enabled: true
+  period: "30s"
+
+gateway:
+  node_id_range:
+    start: 1
+    end: 254
+  version_request_period: "5s"
+
+adapter:
+  topic_prefix: "ms-mqtt-adapter"
+  homeassistant_discovery: true
+
+devices:
+  - name: "Smart Relay Controller"
+    id: "relay_controller_1"
+    node_id: 1
+    manufacturer: "Nippy Electronics"
+    model: "RC-3000"
+    sw_version: "2.1.0"
+    hw_version: "1.2"
+    configuration_url: "http://192.168.1.100/config"
+    suggested_area: "Basement"
+    connections:
+      - ["mac", "AA:BB:CC:DD:EE:FF"]
+      - ["ip", "192.168.1.100"]
+    relays:
+      - name: "Main Power Relay"
+        id: "main_power"
+        child_id: 0
+        initial_state: 0
+        icon: "mdi:power"
+        device_class: "switch"
+        entity_category: "config"
+        enabled_by_default: true
+        availability_topic: "ms-mqtt-adapter/devices/relay_controller_1/availability"
+        payload_available: "online"
+        payload_not_available: "offline"
+        qos: 1
+        retain: true
+        optimistic: false
+        json_attributes_topic: "ms-mqtt-adapter/devices/relay_controller_1/relay/main_power/attributes"
+        state_value_template: "{{ value_json.state }}"
+        command_template: "{{ {'command': value} | to_json }}"
+        
+      - name: "Backup Relay"
+        id: "backup_relay"
+        child_id: 1
+        initial_state: 0
+        icon: "mdi:backup-restore"
+        device_class: "switch"
+        entity_category: "diagnostic"
+        enabled_by_default: false
+        availability_topic: "ms-mqtt-adapter/devices/relay_controller_1/availability"
+        qos: 0
+        retain: false
+        optimistic: true
+
+  - name: "Motion Sensor Array"
+    id: "motion_sensors_1"
+    node_id: 2
+    manufacturer: "Nippy Sensors"
+    model: "MS-6000"
+    sw_version: "1.5.0"
+    hw_version: "2.0"
+    suggested_area: "Living Room"
+    via_device: "relay_controller_1"
+    inputs:
+      - name: "PIR Motion Detector"
+        id: "pir_motion"
+        child_id: 0
+        icon: "mdi:motion-sensor"
+        device_class: "motion"
+        entity_category: ""
+        enabled_by_default: true
+        availability_topic: "ms-mqtt-adapter/devices/motion_sensors_1/availability"
+        payload_available: "online"
+        payload_not_available: "offline"
+        off_delay: 30  # Turn off after 30 seconds
+        expire_after: 300  # Mark unavailable if no update in 5 minutes
+        qos: 1
+        json_attributes_topic: "ms-mqtt-adapter/devices/motion_sensors_1/input/pir_motion/attributes"
+        value_template: "{{ value_json.motion }}"
+        
+      - name: "Door Contact Sensor"
+        id: "door_contact"
+        child_id: 1
+        icon: "mdi:door-open"
+        device_class: "door"
+        entity_category: "diagnostic"
+        enabled_by_default: true
+        availability_topic: "ms-mqtt-adapter/devices/motion_sensors_1/availability"
+        expire_after: 600
+        qos: 0
+        
+      - name: "Window Contact Sensor"
+        id: "window_contact"
+        child_id: 2
+        icon: "mdi:window-open"
+        device_class: "window"
+        enabled_by_default: false
+        off_delay: 5

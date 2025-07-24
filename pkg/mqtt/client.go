@@ -246,6 +246,20 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 		"hw_version":   device.HWVersion,
 	}
 
+	// Add optional device fields
+	if device.ConfigurationURL != "" {
+		deviceInfo["configuration_url"] = device.ConfigurationURL
+	}
+	if device.SuggestedArea != "" {
+		deviceInfo["suggested_area"] = device.SuggestedArea
+	}
+	if len(device.Connections) > 0 {
+		deviceInfo["connections"] = device.Connections
+	}
+	if device.ViaDevice != "" {
+		deviceInfo["via_device"] = device.ViaDevice
+	}
+
 	for _, relay := range device.Relays {
 
 		config := map[string]interface{}{
@@ -257,10 +271,26 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 			"payload_off":   "0",
 			"state_on":      "1",
 			"state_off":     "0",
-			"optimistic":    false,
-			"qos":           0,
-			"retain":        true,
 			"device":        deviceInfo,
+		}
+
+		// Apply relay-specific configurations with defaults
+		if relay.Optimistic != nil {
+			config["optimistic"] = *relay.Optimistic
+		} else {
+			config["optimistic"] = false
+		}
+		
+		if relay.QOS != nil {
+			config["qos"] = *relay.QOS
+		} else {
+			config["qos"] = 0
+		}
+		
+		if relay.Retain != nil {
+			config["retain"] = *relay.Retain
+		} else {
+			config["retain"] = true
 		}
 
 		if relay.Icon != "" {
@@ -268,6 +298,37 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 		}
 		if relay.DeviceClass != "" {
 			config["device_class"] = relay.DeviceClass
+		}
+		if relay.EntityCategory != "" {
+			config["entity_category"] = relay.EntityCategory
+		}
+		if relay.EnabledByDefault != nil {
+			config["enabled_by_default"] = *relay.EnabledByDefault
+		}
+		if relay.AvailabilityTopic != "" {
+			config["availability_topic"] = relay.AvailabilityTopic
+			if relay.PayloadAvailable != "" {
+				config["payload_available"] = relay.PayloadAvailable
+			} else {
+				config["payload_available"] = "online"
+			}
+			if relay.PayloadNotAvailable != "" {
+				config["payload_not_available"] = relay.PayloadNotAvailable
+			} else {
+				config["payload_not_available"] = "offline"
+			}
+		}
+		if relay.JSONAttributesTopic != "" {
+			config["json_attributes_topic"] = relay.JSONAttributesTopic
+		}
+		if relay.JSONAttributesTemplate != "" {
+			config["json_attributes_template"] = relay.JSONAttributesTemplate
+		}
+		if relay.StateValueTemplate != "" {
+			config["state_value_template"] = relay.StateValueTemplate
+		}
+		if relay.CommandTemplate != "" {
+			config["command_template"] = relay.CommandTemplate
 		}
 
 		configJSON, err := json.Marshal(config)
@@ -314,11 +375,52 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 			"device":      deviceInfo,
 		}
 
+		// Apply input-specific configurations
+		if input.QOS != nil {
+			config["qos"] = *input.QOS
+		} else {
+			config["qos"] = 0
+		}
+
 		if input.Icon != "" {
 			config["icon"] = input.Icon
 		}
 		if input.DeviceClass != "" {
 			config["device_class"] = input.DeviceClass
+		}
+		if input.EntityCategory != "" {
+			config["entity_category"] = input.EntityCategory
+		}
+		if input.EnabledByDefault != nil {
+			config["enabled_by_default"] = *input.EnabledByDefault
+		}
+		if input.AvailabilityTopic != "" {
+			config["availability_topic"] = input.AvailabilityTopic
+			if input.PayloadAvailable != "" {
+				config["payload_available"] = input.PayloadAvailable
+			} else {
+				config["payload_available"] = "online"
+			}
+			if input.PayloadNotAvailable != "" {
+				config["payload_not_available"] = input.PayloadNotAvailable
+			} else {
+				config["payload_not_available"] = "offline"
+			}
+		}
+		if input.OffDelay != nil {
+			config["off_delay"] = *input.OffDelay
+		}
+		if input.ExpireAfter != nil {
+			config["expire_after"] = *input.ExpireAfter
+		}
+		if input.JSONAttributesTopic != "" {
+			config["json_attributes_topic"] = input.JSONAttributesTopic
+		}
+		if input.JSONAttributesTemplate != "" {
+			config["json_attributes_template"] = input.JSONAttributesTemplate
+		}
+		if input.ValueTemplate != "" {
+			config["value_template"] = input.ValueTemplate
 		}
 
 		configJSON, err := json.Marshal(config)

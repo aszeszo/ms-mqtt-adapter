@@ -62,34 +62,61 @@ type AdapterConfig struct {
 }
 
 type Device struct {
-	Name         string  `yaml:"name"`
-	ID           string  `yaml:"id"`
-	NodeID       int     `yaml:"node_id"`
-	Manufacturer string  `yaml:"manufacturer"`
-	Model        string  `yaml:"model"`
-	SWVersion    string  `yaml:"sw_version"`
-	HWVersion    string  `yaml:"hw_version"`
-	Relays       []Relay `yaml:"relays"`
-	Inputs       []Input `yaml:"inputs"`
+	Name             string  `yaml:"name"`
+	ID               string  `yaml:"id"`
+	NodeID           int     `yaml:"node_id"`
+	Manufacturer     string  `yaml:"manufacturer"`
+	Model            string  `yaml:"model"`
+	SWVersion        string  `yaml:"sw_version"`
+	HWVersion        string  `yaml:"hw_version"`
+	ConfigurationURL string  `yaml:"configuration_url,omitempty"`
+	SuggestedArea    string  `yaml:"suggested_area,omitempty"`
+	Connections      [][]string `yaml:"connections,omitempty"`
+	ViaDevice        string  `yaml:"via_device,omitempty"`
+	Relays           []Relay `yaml:"relays"`
+	Inputs           []Input `yaml:"inputs"`
 }
 
 type Relay struct {
-	Name         string `yaml:"name"`
-	ID           string `yaml:"id"`
-	ChildID      int    `yaml:"child_id"`
-	NodeID       *int   `yaml:"node_id,omitempty"`
-	InitialState int    `yaml:"initial_state"`
-	Icon         string `yaml:"icon"`
-	DeviceClass  string `yaml:"device_class"`
+	Name                  string            `yaml:"name"`
+	ID                    string            `yaml:"id"`
+	ChildID               int               `yaml:"child_id"`
+	NodeID                *int              `yaml:"node_id,omitempty"`
+	InitialState          int               `yaml:"initial_state"`
+	Icon                  string            `yaml:"icon"`
+	DeviceClass           string            `yaml:"device_class"`
+	EntityCategory        string            `yaml:"entity_category,omitempty"`
+	EnabledByDefault      *bool             `yaml:"enabled_by_default,omitempty"`
+	AvailabilityTopic     string            `yaml:"availability_topic,omitempty"`
+	PayloadAvailable      string            `yaml:"payload_available,omitempty"`
+	PayloadNotAvailable   string            `yaml:"payload_not_available,omitempty"`
+	QOS                   *int              `yaml:"qos,omitempty"`
+	Retain                *bool             `yaml:"retain,omitempty"`
+	Optimistic            *bool             `yaml:"optimistic,omitempty"`
+	JSONAttributesTopic   string            `yaml:"json_attributes_topic,omitempty"`
+	JSONAttributesTemplate string           `yaml:"json_attributes_template,omitempty"`
+	StateValueTemplate    string            `yaml:"state_value_template,omitempty"`
+	CommandTemplate       string            `yaml:"command_template,omitempty"`
 }
 
 type Input struct {
-	Name        string `yaml:"name"`
-	ID          string `yaml:"id"`
-	ChildID     int    `yaml:"child_id"`
-	NodeID      *int   `yaml:"node_id,omitempty"`
-	Icon        string `yaml:"icon"`
-	DeviceClass string `yaml:"device_class"`
+	Name                  string `yaml:"name"`
+	ID                    string `yaml:"id"`
+	ChildID               int    `yaml:"child_id"`
+	NodeID                *int   `yaml:"node_id,omitempty"`
+	Icon                  string `yaml:"icon"`
+	DeviceClass           string `yaml:"device_class"`
+	EntityCategory        string `yaml:"entity_category,omitempty"`
+	EnabledByDefault      *bool  `yaml:"enabled_by_default,omitempty"`
+	AvailabilityTopic     string `yaml:"availability_topic,omitempty"`
+	PayloadAvailable      string `yaml:"payload_available,omitempty"`
+	PayloadNotAvailable   string `yaml:"payload_not_available,omitempty"`
+	QOS                   *int   `yaml:"qos,omitempty"`
+	OffDelay              *int   `yaml:"off_delay,omitempty"`
+	ExpireAfter           *int   `yaml:"expire_after,omitempty"`
+	JSONAttributesTopic   string `yaml:"json_attributes_topic,omitempty"`
+	JSONAttributesTemplate string `yaml:"json_attributes_template,omitempty"`
+	ValueTemplate         string `yaml:"value_template,omitempty"`
 }
 
 func LoadConfig(filename string) (*Config, error) {
