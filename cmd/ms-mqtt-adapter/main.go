@@ -143,22 +143,28 @@ func (app *Application) Run(ctx context.Context) error {
 	return app.shutdown()
 }
 
-func (app *Application) initializeTransport() error {
-	switch app.config.MySensors.Transport {
-	case "ethernet":
-		app.transport = transport.NewEthernetTransport(
-			app.config.MySensors.Ethernet.Host,
-			app.config.MySensors.Ethernet.Port,
-			app.logger,
-		)
-	case "rs485":
-		app.transport = transport.NewRS485Transport(
-			app.config.MySensors.RS485.Device,
-			9600,
-			app.logger,
-		)
-	default:
-		return fmt.Errorf("unsupported transport type: %s", app.config.MySensors.Transport)
+func (app *Application) initializeTransports() error {
+	app.transports = make(map[string]transport.Transport)
+	
+	for gatewayName, gatewayConfig := range app.config.MySensors {
+		var t transport.Transport
+		switch gatewayConfig.Transport {
+		case "ethernet":
+			t = transport.NewEthernetTransport(
+				gatewayConfig.Ethernet.Host,
+				gatewayConfig.Ethernet.Port,
+				app.logger,
+			)
+		case "rs485":
+			t = transport.NewRS485Transport(
+				gatewayConfig.RS485.Device,
+				9600,
+				app.logger,
+			)
+		default:
+			return fmt.Errorf("unsupported transport type for gateway %s: %s", gatewayName, gatewayConfig.Transport)
+		}
+		app.transports[gatewayName] = t
 	}
 
 	return nil
@@ -169,35 +175,64 @@ func (app *Application) initializeMQTT() error {
 	return nil
 }
 
-func (app *Application) initializeTCPServer() error {
-	if app.config.TCPService.Enabled {
-		app.tcpServer = tcp.NewServer(app.config.TCPService.Port, app.logger)
+func (app *Application) initializeTCPServers() error {
+	app.tcpServers = make(map[string]*tcp.Server)
+	
+	for gatewayName, gatewayConfig := range app.config.MySensors {
+		if gatewayConfig.TCPService.Enabled {
+			app.tcpServers[gatewayName] = tcp.NewServer(gatewayConfig.TCPService.Port, app.logger)
+		}
 	}
 	return nil
 }
 
-func (app *Application) initializeGateway() error {
-	app.gateway = gateway.NewGateway(app.config, app.transport, app.logger)
+func (app *Application) initializeGateways() error {
+	app.gateways = make(map[string]*gateway.Gateway)
+	
+	for gatewayName, gatewayConfig := range app.config.MySensors {
+		transport := app.transports[gatewayName]
+		if transport == nil {
+			return fmt.Errorf("no transport found for gateway %s", gatewayName)
+		}
+		
+		// Create a gateway config for this specific gateway
+		gatewayConf := &config.GatewayConfig{
+			NodeIDRange:            gatewayConfig.Gateway.NodeIDRange,
+			VersionRequestPeriod:   gatewayConfig.Gateway.VersionRequestPeriod,
+			RandomIDAssignment:     gatewayConfig.Gateway.RandomIDAssignment,
+		}
+		
+		app.gateways[gatewayName] = gateway.NewGateway(gatewayConf, transport, app.logger)
+	}
 	return nil
 }
 
 func (app *Application) initializeSyncManager() error {
-	app.syncMgr = events.NewSyncManager(app.config, app.mqttClient, app.transport, app.logger)
+	// Use default transport for sync manager
+	defaultTransport := app.getDefaultTransport()
+	if defaultTransport == nil {
+		return fmt.Errorf("no transport available for sync manager")
+	}
+	app.syncMgr = events.NewSyncManager(app.config, app.mqttClient, defaultTransport, app.logger)
 	return nil
 }
 
 func (app *Application) start(ctx context.Context) error {
-	if err := app.transport.Connect(ctx); err != nil {
-		return fmt.Errorf("failed to connect transport: %w", err)
+	// Connect all transports
+	for gatewayName, transport := range app.transports {
+		if err := transport.Connect(ctx); err != nil {
+			return fmt.Errorf("failed to connect transport for gateway %s: %w", gatewayName, err)
+		}
 	}
 
 	if err := app.mqttClient.Connect(ctx); err != nil {
 		return fmt.Errorf("failed to connect MQTT: %w", err)
 	}
 
-	if app.tcpServer != nil {
-		if err := app.tcpServer.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start TCP server: %w", err)
+	// Start all TCP servers
+	for gatewayName, tcpServer := range app.tcpServers {
+		if err := tcpServer.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start TCP server for gateway %s: %w", gatewayName, err)
 		}
 	}
 
@@ -216,8 +251,16 @@ func (app *Application) publishDiscovery() error {
 		app.logger.Info("Published Home Assistant discovery", "device", device.Name)
 	}
 
-	seenNodes := app.gateway.GetSeenNodes()
-	if err := app.mqttClient.PublishAdapterStatus(app.config.AdapterTopics.TopicPrefix, seenNodes); err != nil {
+	// Collect seen nodes from all gateways
+	allSeenNodes := make(map[int]bool)
+	for _, gateway := range app.gateways {
+		seenNodes := gateway.GetSeenNodes()
+		for nodeID := range seenNodes {
+			allSeenNodes[nodeID] = true
+		}
+	}
+	
+	if err := app.mqttClient.PublishAdapterStatus(app.config.AdapterTopics.TopicPrefix, allSeenNodes); err != nil {
 		return fmt.Errorf("failed to publish adapter status: %w", err)
 	}
 
@@ -225,35 +268,54 @@ func (app *Application) publishDiscovery() error {
 }
 
 func (app *Application) handleMySensorsMessages() {
-	for message := range app.transport.Receive() {
-		app.logger.Debug("Received MySensors message", "message", message.String())
+	// Start a goroutine for each transport
+	for gatewayName, transport := range app.transports {
+		go func(gName string, t transport.Transport) {
+			for message := range t.Receive() {
+				app.logger.Debug("Received MySensors message", "gateway", gName, "message", message.String())
 
-		if app.tcpServer != nil {
-			app.tcpServer.BroadcastMessage(message)
-		}
+				// Broadcast to corresponding TCP server
+				if tcpServer, exists := app.tcpServers[gName]; exists {
+					tcpServer.BroadcastMessage(message)
+				}
 
-		if err := app.gateway.HandleMessage(message); err != nil {
-			app.logger.Error("Gateway message handling failed", "error", err, "message", message.String())
-		}
+				// Handle message with corresponding gateway
+				if gateway, exists := app.gateways[gName]; exists {
+					if err := gateway.HandleMessage(message); err != nil {
+						app.logger.Error("Gateway message handling failed", "gateway", gName, "error", err, "message", message.String())
+					}
+				}
 
-		app.handleDeviceMessage(message)
+				app.handleDeviceMessage(message)
 
-		seenNodes := app.gateway.GetSeenNodes()
-		if err := app.mqttClient.PublishAdapterStatus(app.config.AdapterTopics.TopicPrefix, seenNodes); err != nil {
-			app.logger.Error("Failed to publish adapter status", "error", err)
-		}
+				// Update adapter status with all seen nodes
+				allSeenNodes := make(map[int]bool)
+				for _, gw := range app.gateways {
+					seenNodes := gw.GetSeenNodes()
+					for nodeID := range seenNodes {
+						allSeenNodes[nodeID] = true
+					}
+				}
+				if err := app.mqttClient.PublishAdapterStatus(app.config.AdapterTopics.TopicPrefix, allSeenNodes); err != nil {
+					app.logger.Error("Failed to publish adapter status", "error", err)
+				}
+			}
+		}(gatewayName, transport)
 	}
 }
 
 func (app *Application) handleTCPMessages() {
-	if app.tcpServer == nil {
-		return
-	}
-
-	for message := range app.tcpServer.Receive() {
-		if err := app.transport.Send(message); err != nil {
-			app.logger.Error("Failed to forward TCP message to MySensors", "error", err, "message", message.String())
-		}
+	// Start a goroutine for each TCP server
+	for gatewayName, tcpServer := range app.tcpServers {
+		go func(gName string, server *tcp.Server) {
+			for message := range server.Receive() {
+				if transport, exists := app.transports[gName]; exists {
+					if err := transport.Send(message); err != nil {
+						app.logger.Error("Failed to forward TCP message to MySensors", "gateway", gName, "error", err, "message", message.String())
+					}
+				}
+			}
+		}(gatewayName, tcpServer)
 	}
 }
 
@@ -274,14 +336,26 @@ func (app *Application) handleMQTTStateChanges() {
 					nodeID = *currentRelay.NodeID
 				}
 
+				// Determine which gateway to use
+				gatewayName := "default"
+				if currentDevice.Gateway != "" {
+					gatewayName = currentDevice.Gateway
+				}
+				
+				transport, exists := app.transports[gatewayName]
+				if !exists {
+					app.logger.Error("No transport found for gateway", "gateway", gatewayName, "device", deviceName)
+					return
+				}
+
 				// Use configured ACK bit setting (default true to encourage device echoing)
 				requestAck := app.config.AdapterTopics.RequestAck != nil && *app.config.AdapterTopics.RequestAck
 				message := mysensors.NewSetMessageWithAck(nodeID, currentRelay.ChildID, mysensors.V_STATUS, mysensorsState, requestAck)
-				if err := app.transport.Send(message); err != nil {
-					app.logger.Error("Failed to send state change to MySensors", "error", err,
+				if err := transport.Send(message); err != nil {
+					app.logger.Error("Failed to send state change to MySensors", "gateway", gatewayName, "error", err,
 						"device", deviceName, "component", componentName, "state", state)
 				} else {
-					app.logger.Debug("MySensors command sent", "device", deviceName, "relay", componentName, 
+					app.logger.Debug("MySensors command sent", "gateway", gatewayName, "device", deviceName, "relay", componentName, 
 						"node_id", nodeID, "child_id", currentRelay.ChildID, "state", mysensorsState)
 				}
 			})
@@ -354,18 +428,32 @@ func (app *Application) handleDeviceMessage(message *mysensors.Message) {
 }
 
 func (app *Application) periodicVersionRequest(ctx context.Context) {
-	ticker := time.NewTicker(app.config.Gateway.VersionRequestPeriod)
+	// Use the default gateway's period, or first available gateway
+	var period time.Duration
+	if defaultGatewayConfig, exists := app.config.MySensors["default"]; exists {
+		period = defaultGatewayConfig.Gateway.VersionRequestPeriod
+	} else {
+		// Use first gateway's period
+		for _, gatewayConfig := range app.config.MySensors {
+			period = gatewayConfig.Gateway.VersionRequestPeriod
+			break
+		}
+	}
+	
+	ticker := time.NewTicker(period)
 	defer ticker.Stop()
 
-	app.logger.Info("Starting periodic version requests", "period", app.config.Gateway.VersionRequestPeriod)
+	app.logger.Info("Starting periodic version requests", "period", period)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := app.gateway.SendVersionRequest(); err != nil {
-				app.logger.Error("Failed to send periodic version request", "error", err)
+			for gatewayName, gateway := range app.gateways {
+				if err := gateway.SendVersionRequest(); err != nil {
+					app.logger.Error("Failed to send periodic version request", "gateway", gatewayName, "error", err)
+				}
 			}
 		}
 	}
@@ -378,16 +466,20 @@ func (app *Application) shutdown() error {
 		app.syncMgr.Stop()
 	}
 
-	if app.tcpServer != nil {
-		app.tcpServer.Stop()
+	// Stop all TCP servers
+	for gatewayName, tcpServer := range app.tcpServers {
+		app.logger.Debug("Stopping TCP server", "gateway", gatewayName)
+		tcpServer.Stop()
 	}
 
 	if app.mqttClient != nil {
 		app.mqttClient.Disconnect()
 	}
 
-	if app.transport != nil {
-		app.transport.Disconnect()
+	// Disconnect all transports
+	for gatewayName, transport := range app.transports {
+		app.logger.Debug("Disconnecting transport", "gateway", gatewayName)
+		transport.Disconnect()
 	}
 
 	return nil
