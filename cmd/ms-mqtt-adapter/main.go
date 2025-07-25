@@ -52,7 +52,7 @@ type Application struct {
 	logger     *slog.Logger
 	transports map[string]transport.Transport  // gatewayName -> transport
 	mqttClient *mqtt.Client
-	tcpServer  *tcp.Server
+	tcpServers map[string]*tcp.Server          // gatewayName -> tcpServer
 	gateways   map[string]*gateway.Gateway     // gatewayName -> gateway
 	syncMgr    *events.SyncManager
 }
@@ -93,8 +93,8 @@ func (app *Application) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize MQTT: %w", err)
 	}
 
-	if err := app.initializeTCPServer(); err != nil {
-		return fmt.Errorf("failed to initialize TCP server: %w", err)
+	if err := app.initializeTCPServers(); err != nil {
+		return fmt.Errorf("failed to initialize TCP servers: %w", err)
 	}
 
 	if err := app.initializeGateways(); err != nil {

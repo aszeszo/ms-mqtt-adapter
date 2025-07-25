@@ -13,7 +13,11 @@ mysensors:
         start: 1
         end: 254
       version_request_period: "5s"  # How often to send version requests to gateway
-  # Example second gateway (uncomment to use)
+      random_id_assignment: false   # false=sequential (default), true=random from pool
+    tcp_service:
+      enabled: true
+      port: 5003  # TCP port for MySensors message replication
+  # Example second gateway (uncomment to use multiple gateways)
   # garage:
   #   transport: "rs485"
   #   rs485:
@@ -23,6 +27,10 @@ mysensors:
   #       start: 1
   #       end: 254
   #     version_request_period: "5s"
+  #     random_id_assignment: true    # Use random assignment for garage gateway
+  #   tcp_service:
+  #     enabled: true
+  #     port: 5004  # Must be different port than other gateways
 
 mqtt:
   broker: "172.24.0.243"
@@ -30,10 +38,6 @@ mqtt:
   username: "nippy"
   password: "nippy"
   client_id: "ms-mqtt-adapter"
-
-tcp_service:
-  enabled: true
-  port: 5003
 
 sync:
   enabled: true

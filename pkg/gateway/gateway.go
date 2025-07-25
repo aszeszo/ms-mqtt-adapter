@@ -3,6 +3,7 @@ package gateway
 import (
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"ms-mqtt-adapter/internal/mysensors"
 	"ms-mqtt-adapter/pkg/config"
 	"ms-mqtt-adapter/pkg/transport"
@@ -12,21 +13,21 @@ import (
 )
 
 type Gateway struct {
-	config     *config.Config
-	transport  transport.Transport
-	logger     *slog.Logger
-	seenNodes  map[int]bool
-	nodesMu    sync.RWMutex
-	nextNodeID int
+	gatewayConfig *config.GatewayConfig
+	transport     transport.Transport
+	logger        *slog.Logger
+	seenNodes     map[int]bool
+	nodesMu       sync.RWMutex
+	nextNodeID    int
 }
 
-func NewGateway(cfg *config.Config, transport transport.Transport, logger *slog.Logger) *Gateway {
+func NewGateway(gatewayConfig *config.GatewayConfig, transport transport.Transport, logger *slog.Logger) *Gateway {
 	return &Gateway{
-		config:     cfg,
-		transport:  transport,
-		logger:     logger,
-		seenNodes:  make(map[int]bool),
-		nextNodeID: cfg.Gateway.NodeIDRange.Start,
+		gatewayConfig: gatewayConfig,
+		transport:     transport,
+		logger:        logger,
+		seenNodes:     make(map[int]bool),
+		nextNodeID:    gatewayConfig.NodeIDRange.Start,
 	}
 }
 
@@ -61,7 +62,14 @@ func (g *Gateway) handleIDRequest(message *mysensors.Message) error {
 		return err
 	}
 
-	g.logger.Info("Assigned node ID", "assigned_id", nodeID, "requesting_node", message.NodeID)
+	// Log assignment method used
+	assignmentMethod := "sequential"
+	if g.gatewayConfig.RandomIDAssignment != nil && *g.gatewayConfig.RandomIDAssignment {
+		assignmentMethod = "random"
+	}
+	
+	g.logger.Info("Assigned node ID", "assigned_id", nodeID, "requesting_node", message.NodeID, 
+		"method", assignmentMethod)
 	g.trackNode(nodeID)
 	return nil
 }
@@ -83,13 +91,43 @@ func (g *Gateway) assignNodeID() int {
 	g.nodesMu.Lock()
 	defer g.nodesMu.Unlock()
 
-	for nodeID := g.config.Gateway.NodeIDRange.Start; nodeID <= g.config.Gateway.NodeIDRange.End; nodeID++ {
+	// Check if random ID assignment is enabled
+	useRandomAssignment := g.gatewayConfig.RandomIDAssignment != nil && *g.gatewayConfig.RandomIDAssignment
+
+	if useRandomAssignment {
+		return g.assignRandomNodeID()
+	} else {
+		return g.assignSequentialNodeID()
+	}
+}
+
+func (g *Gateway) assignSequentialNodeID() int {
+	// Original sequential assignment logic
+	for nodeID := g.gatewayConfig.NodeIDRange.Start; nodeID <= g.gatewayConfig.NodeIDRange.End; nodeID++ {
 		if !g.seenNodes[nodeID] {
 			return nodeID
 		}
 	}
-
 	return -1
+}
+
+func (g *Gateway) assignRandomNodeID() int {
+	// Build list of available node IDs
+	var availableIDs []int
+	for nodeID := g.gatewayConfig.NodeIDRange.Start; nodeID <= g.gatewayConfig.NodeIDRange.End; nodeID++ {
+		if !g.seenNodes[nodeID] {
+			availableIDs = append(availableIDs, nodeID)
+		}
+	}
+
+	// No available IDs
+	if len(availableIDs) == 0 {
+		return -1
+	}
+
+	// Select random ID from available pool
+	randomIndex := rand.Intn(len(availableIDs))
+	return availableIDs[randomIndex]
 }
 
 func (g *Gateway) trackNode(nodeID int) {

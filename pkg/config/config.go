@@ -12,22 +12,22 @@ type Config struct {
 	LogLevel      string                     `yaml:"log_level"`
 	MySensors     map[string]MySensorsConfig `yaml:"mysensors"`
 	MQTT          MQTTConfig                 `yaml:"mqtt"`
-	TCPService    TCPServiceConfig           `yaml:"tcp_service"`
 	Sync          SyncConfig                 `yaml:"sync"`
 	AdapterTopics AdapterConfig             `yaml:"adapter"`
 	Devices       []Device                   `yaml:"devices"`
 }
 
 type MySensorsConfig struct {
-	Transport string `yaml:"transport"`
-	Ethernet  struct {
+	Transport  string           `yaml:"transport"`
+	Ethernet   struct {
 		Host string `yaml:"host"`
 		Port int    `yaml:"port"`
 	} `yaml:"ethernet"`
-	RS485 struct {
+	RS485      struct {
 		Device string `yaml:"device"`
 	} `yaml:"rs485"`
-	Gateway GatewayConfig `yaml:"gateway"`
+	Gateway    GatewayConfig    `yaml:"gateway"`
+	TCPService TCPServiceConfig `yaml:"tcp_service"`
 }
 
 type MQTTConfig struct {
@@ -54,6 +54,7 @@ type GatewayConfig struct {
 		End   int `yaml:"end"`
 	} `yaml:"node_id_range"`
 	VersionRequestPeriod time.Duration `yaml:"version_request_period"`
+	RandomIDAssignment   *bool         `yaml:"random_id_assignment,omitempty"`
 }
 
 type AdapterConfig struct {
@@ -157,6 +158,9 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("at least one mysensors gateway is required")
 	}
 
+	// Track TCP service ports to ensure no conflicts
+	tcpPorts := make(map[int]string)
+	
 	// Validate each MySensors gateway configuration
 	for gatewayName, mysensorsConfig := range config.MySensors {
 		if mysensorsConfig.Transport == "" {
@@ -170,6 +174,18 @@ func validateConfig(config *Config) error {
 			if mysensorsConfig.Ethernet.Port == 0 {
 				return fmt.Errorf("mysensors gateway '%s' ethernet port is required", gatewayName)
 			}
+		}
+		
+		// Validate TCP service ports for conflicts
+		if mysensorsConfig.TCPService.Enabled {
+			if mysensorsConfig.TCPService.Port == 0 {
+				return fmt.Errorf("mysensors gateway '%s' TCP service port is required when enabled", gatewayName)
+			}
+			if existingGateway, exists := tcpPorts[mysensorsConfig.TCPService.Port]; exists {
+				return fmt.Errorf("mysensors gateway '%s' TCP service port %d conflicts with gateway '%s'", 
+					gatewayName, mysensorsConfig.TCPService.Port, existingGateway)
+			}
+			tcpPorts[mysensorsConfig.TCPService.Port] = gatewayName
 		}
 	}
 
@@ -242,15 +258,12 @@ func setDefaults(config *Config) {
 		config.MQTT.ClientID = "ms-mqtt-adapter"
 	}
 
-	if config.TCPService.Port == 0 {
-		config.TCPService.Port = 5003
-	}
-
 	if config.Sync.Period == 0 {
 		config.Sync.Period = 30 * time.Second
 	}
 
 	// Set defaults for all MySensors gateways
+	nextTCPPort := 5003
 	for gatewayName, gatewayConfig := range config.MySensors {
 		if gatewayConfig.Gateway.NodeIDRange.Start == 0 {
 			gatewayConfig.Gateway.NodeIDRange.Start = 1
@@ -262,6 +275,25 @@ func setDefaults(config *Config) {
 
 		if gatewayConfig.Gateway.VersionRequestPeriod == 0 {
 			gatewayConfig.Gateway.VersionRequestPeriod = 5 * time.Second
+		}
+		
+		// Default to sequential ID assignment (false) if not specified
+		if gatewayConfig.Gateway.RandomIDAssignment == nil {
+			randomAssignment := false
+			gatewayConfig.Gateway.RandomIDAssignment = &randomAssignment
+		}
+		
+		// Set TCP service defaults - auto-assign unique ports for multiple gateways
+		if gatewayConfig.TCPService.Port == 0 && gatewayConfig.TCPService.Enabled {
+			gatewayConfig.TCPService.Port = nextTCPPort
+			nextTCPPort++
+		}
+		// Enable TCP service by default for first gateway ("default") only
+		if gatewayName == "default" && len(config.MySensors) == 1 {
+			gatewayConfig.TCPService.Enabled = true
+			if gatewayConfig.TCPService.Port == 0 {
+				gatewayConfig.TCPService.Port = 5003
+			}
 		}
 
 		config.MySensors[gatewayName] = gatewayConfig
