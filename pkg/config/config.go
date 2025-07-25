@@ -9,14 +9,13 @@ import (
 )
 
 type Config struct {
-	LogLevel      string           `yaml:"log_level"`
-	MySensors     MySensorsConfig  `yaml:"mysensors"`
-	MQTT          MQTTConfig       `yaml:"mqtt"`
-	TCPService    TCPServiceConfig `yaml:"tcp_service"`
-	Sync          SyncConfig       `yaml:"sync"`
-	Gateway       GatewayConfig    `yaml:"gateway"`
-	AdapterTopics AdapterConfig    `yaml:"adapter"`
-	Devices       []Device         `yaml:"devices"`
+	LogLevel      string                     `yaml:"log_level"`
+	MySensors     map[string]MySensorsConfig `yaml:"mysensors"`
+	MQTT          MQTTConfig                 `yaml:"mqtt"`
+	TCPService    TCPServiceConfig           `yaml:"tcp_service"`
+	Sync          SyncConfig                 `yaml:"sync"`
+	AdapterTopics AdapterConfig             `yaml:"adapter"`
+	Devices       []Device                   `yaml:"devices"`
 }
 
 type MySensorsConfig struct {
@@ -28,6 +27,7 @@ type MySensorsConfig struct {
 	RS485 struct {
 		Device string `yaml:"device"`
 	} `yaml:"rs485"`
+	Gateway GatewayConfig `yaml:"gateway"`
 }
 
 type MQTTConfig struct {
@@ -67,6 +67,7 @@ type Device struct {
 	Name             string  `yaml:"name"`
 	ID               string  `yaml:"id"`
 	NodeID           int     `yaml:"node_id"`
+	Gateway          string  `yaml:"gateway,omitempty"`
 	Manufacturer     string  `yaml:"manufacturer"`
 	Model            string  `yaml:"model"`
 	SWVersion        string  `yaml:"sw_version"`
@@ -84,6 +85,7 @@ type Relay struct {
 	ID                    string            `yaml:"id"`
 	ChildID               int               `yaml:"child_id"`
 	NodeID                *int              `yaml:"node_id,omitempty"`
+	Gateway               string            `yaml:"gateway,omitempty"`
 	InitialState          int               `yaml:"initial_state"`
 	Icon                  string            `yaml:"icon"`
 	DeviceClass           string            `yaml:"device_class"`
@@ -110,6 +112,7 @@ type Input struct {
 	ID                    string `yaml:"id"`
 	ChildID               int    `yaml:"child_id"`
 	NodeID                *int   `yaml:"node_id,omitempty"`
+	Gateway               string `yaml:"gateway,omitempty"`
 	Icon                  string `yaml:"icon"`
 	DeviceClass           string `yaml:"device_class"`
 	EntityCategory        string `yaml:"entity_category,omitempty"`
@@ -149,16 +152,24 @@ func LoadConfig(filename string) (*Config, error) {
 }
 
 func validateConfig(config *Config) error {
-	if config.MySensors.Transport == "" {
-		return fmt.Errorf("mysensors transport is required")
+	// Ensure we have at least one MySensors gateway
+	if len(config.MySensors) == 0 {
+		return fmt.Errorf("at least one mysensors gateway is required")
 	}
 
-	if config.MySensors.Transport == "ethernet" {
-		if config.MySensors.Ethernet.Host == "" {
-			return fmt.Errorf("mysensors ethernet host is required")
+	// Validate each MySensors gateway configuration
+	for gatewayName, mysensorsConfig := range config.MySensors {
+		if mysensorsConfig.Transport == "" {
+			return fmt.Errorf("mysensors gateway '%s' transport is required", gatewayName)
 		}
-		if config.MySensors.Ethernet.Port == 0 {
-			return fmt.Errorf("mysensors ethernet port is required")
+
+		if mysensorsConfig.Transport == "ethernet" {
+			if mysensorsConfig.Ethernet.Host == "" {
+				return fmt.Errorf("mysensors gateway '%s' ethernet host is required", gatewayName)
+			}
+			if mysensorsConfig.Ethernet.Port == 0 {
+				return fmt.Errorf("mysensors gateway '%s' ethernet port is required", gatewayName)
+			}
 		}
 	}
 
@@ -192,9 +203,35 @@ func validateConfig(config *Config) error {
 	return nil
 }
 
+// GetEffectiveGateway returns the gateway name to use for a device/relay/input
+func (config *Config) GetEffectiveGateway(deviceGateway, componentGateway string) string {
+	// Priority: component gateway > device gateway > "default"
+	if componentGateway != "" {
+		return componentGateway
+	}
+	if deviceGateway != "" {
+		return deviceGateway
+	}
+	return "default"
+}
+
 func setDefaults(config *Config) {
 	if config.LogLevel == "" {
 		config.LogLevel = "info"
+	}
+
+	// Ensure MySensors map is initialized
+	if config.MySensors == nil {
+		config.MySensors = make(map[string]MySensorsConfig)
+	}
+
+	// If there's no "default" gateway but only one gateway, rename it to "default"
+	if _, hasDefault := config.MySensors["default"]; !hasDefault && len(config.MySensors) == 1 {
+		for name, gatewayConfig := range config.MySensors {
+			delete(config.MySensors, name)
+			config.MySensors["default"] = gatewayConfig
+			break
+		}
 	}
 
 	if config.MQTT.Port == 0 {
@@ -213,16 +250,21 @@ func setDefaults(config *Config) {
 		config.Sync.Period = 30 * time.Second
 	}
 
-	if config.Gateway.NodeIDRange.Start == 0 {
-		config.Gateway.NodeIDRange.Start = 1
-	}
+	// Set defaults for all MySensors gateways
+	for gatewayName, gatewayConfig := range config.MySensors {
+		if gatewayConfig.Gateway.NodeIDRange.Start == 0 {
+			gatewayConfig.Gateway.NodeIDRange.Start = 1
+		}
 
-	if config.Gateway.NodeIDRange.End == 0 {
-		config.Gateway.NodeIDRange.End = 254
-	}
+		if gatewayConfig.Gateway.NodeIDRange.End == 0 {
+			gatewayConfig.Gateway.NodeIDRange.End = 254
+		}
 
-	if config.Gateway.VersionRequestPeriod == 0 {
-		config.Gateway.VersionRequestPeriod = 5 * time.Second
+		if gatewayConfig.Gateway.VersionRequestPeriod == 0 {
+			gatewayConfig.Gateway.VersionRequestPeriod = 5 * time.Second
+		}
+
+		config.MySensors[gatewayName] = gatewayConfig
 	}
 
 	if config.AdapterTopics.TopicPrefix == "" {

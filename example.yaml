@@ -1,12 +1,28 @@
 log_level: "info"  # debug, info, warn, error
 
 mysensors:
-  transport: "ethernet"  # ethernet, rs485
-  ethernet:
-    host: "172.30.15.1"
-    port: 5003
-  rs485:
-    device: "/dev/ttyUSB0"
+  default:
+    transport: "ethernet"  # ethernet, rs485
+    ethernet:
+      host: "172.30.15.1"
+      port: 5003
+    rs485:
+      device: "/dev/ttyUSB0"
+    gateway:
+      node_id_range:
+        start: 1
+        end: 254
+      version_request_period: "5s"  # How often to send version requests to gateway
+  # Example second gateway (uncomment to use)
+  # garage:
+  #   transport: "rs485"
+  #   rs485:
+  #     device: "/dev/ttyUSB1"
+  #   gateway:
+  #     node_id_range:
+  #       start: 1
+  #       end: 254
+  #     version_request_period: "5s"
 
 mqtt:
   broker: "172.24.0.243"
@@ -22,12 +38,6 @@ tcp_service:
 sync:
   enabled: true
   period: "30s"
-
-gateway:
-  node_id_range:
-    start: 1
-    end: 254
-  version_request_period: "5s"  # How often to send version requests to gateway
 
 adapter:
   topic_prefix: "ms-mqtt-adapter"

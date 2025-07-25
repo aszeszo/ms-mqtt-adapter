@@ -50,16 +50,43 @@ func main() {
 type Application struct {
 	config     *config.Config
 	logger     *slog.Logger
-	transport  transport.Transport
+	transports map[string]transport.Transport  // gatewayName -> transport
 	mqttClient *mqtt.Client
 	tcpServer  *tcp.Server
-	gateway    *gateway.Gateway
+	gateways   map[string]*gateway.Gateway     // gatewayName -> gateway
 	syncMgr    *events.SyncManager
 }
 
+// Helper methods for backward compatibility during refactoring
+func (app *Application) getDefaultTransport() transport.Transport {
+	if app.transports != nil {
+		if t, exists := app.transports["default"]; exists {
+			return t
+		}
+		// Return any transport if default doesn't exist
+		for _, t := range app.transports {
+			return t
+		}
+	}
+	return nil
+}
+
+func (app *Application) getDefaultGateway() *gateway.Gateway {
+	if app.gateways != nil {
+		if g, exists := app.gateways["default"]; exists {
+			return g
+		}
+		// Return any gateway if default doesn't exist
+		for _, g := range app.gateways {
+			return g
+		}
+	}
+	return nil
+}
+
 func (app *Application) Run(ctx context.Context) error {
-	if err := app.initializeTransport(); err != nil {
-		return fmt.Errorf("failed to initialize transport: %w", err)
+	if err := app.initializeTransports(); err != nil {
+		return fmt.Errorf("failed to initialize transports: %w", err)
 	}
 
 	if err := app.initializeMQTT(); err != nil {
@@ -70,8 +97,8 @@ func (app *Application) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize TCP server: %w", err)
 	}
 
-	if err := app.initializeGateway(); err != nil {
-		return fmt.Errorf("failed to initialize gateway: %w", err)
+	if err := app.initializeGateways(); err != nil {
+		return fmt.Errorf("failed to initialize gateways: %w", err)
 	}
 
 	if err := app.initializeSyncManager(); err != nil {
@@ -95,10 +122,12 @@ func (app *Application) Run(ctx context.Context) error {
 		app.syncMgr.SyncDeviceStates()
 	}
 
-	// Send initial version request to gateway
-	app.logger.Info("Sending initial version request to gateway")
-	if err := app.gateway.SendVersionRequest(); err != nil {
-		app.logger.Error("Failed to send initial version request", "error", err)
+	// Send initial version request to all gateways
+	app.logger.Info("Sending initial version requests to gateways")
+	for gatewayName, gw := range app.gateways {
+		if err := gw.SendVersionRequest(); err != nil {
+			app.logger.Error("Failed to send initial version request", "gateway", gatewayName, "error", err)
+		}
 	}
 
 	go app.handleMySensorsMessages()
