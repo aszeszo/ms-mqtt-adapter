@@ -190,8 +190,8 @@ func (app *Application) initializeGateways() error {
 	app.gateways = make(map[string]*gateway.Gateway)
 	
 	for gatewayName, gatewayConfig := range app.config.MySensors {
-		transport := app.transports[gatewayName]
-		if transport == nil {
+		gTransport := app.transports[gatewayName]
+		if gTransport == nil {
 			return fmt.Errorf("no transport found for gateway %s", gatewayName)
 		}
 		
@@ -202,7 +202,7 @@ func (app *Application) initializeGateways() error {
 			RandomIDAssignment:     gatewayConfig.Gateway.RandomIDAssignment,
 		}
 		
-		app.gateways[gatewayName] = gateway.NewGateway(gatewayConf, transport, app.logger)
+		app.gateways[gatewayName] = gateway.NewGateway(gatewayConf, gTransport, app.logger)
 	}
 	return nil
 }
@@ -219,8 +219,8 @@ func (app *Application) initializeSyncManager() error {
 
 func (app *Application) start(ctx context.Context) error {
 	// Connect all transports
-	for gatewayName, transport := range app.transports {
-		if err := transport.Connect(ctx); err != nil {
+	for gatewayName, gTransport := range app.transports {
+		if err := gTransport.Connect(ctx); err != nil {
 			return fmt.Errorf("failed to connect transport for gateway %s: %w", gatewayName, err)
 		}
 	}
@@ -252,12 +252,18 @@ func (app *Application) publishDiscovery() error {
 	}
 
 	// Collect seen nodes from all gateways
-	allSeenNodes := make(map[int]bool)
+	allSeenNodesMap := make(map[int]bool)
 	for _, gateway := range app.gateways {
 		seenNodes := gateway.GetSeenNodes()
 		for nodeID := range seenNodes {
-			allSeenNodes[nodeID] = true
+			allSeenNodesMap[nodeID] = true
 		}
+	}
+	
+	// Convert map to slice
+	var allSeenNodes []int
+	for nodeID := range allSeenNodesMap {
+		allSeenNodes = append(allSeenNodes, nodeID)
 	}
 	
 	if err := app.mqttClient.PublishAdapterStatus(app.config.AdapterTopics.TopicPrefix, allSeenNodes); err != nil {
@@ -269,7 +275,7 @@ func (app *Application) publishDiscovery() error {
 
 func (app *Application) handleMySensorsMessages() {
 	// Start a goroutine for each transport
-	for gatewayName, transport := range app.transports {
+	for gatewayName, gTransport := range app.transports {
 		go func(gName string, t transport.Transport) {
 			for message := range t.Receive() {
 				app.logger.Debug("Received MySensors message", "gateway", gName, "message", message.String())
@@ -289,18 +295,25 @@ func (app *Application) handleMySensorsMessages() {
 				app.handleDeviceMessage(message)
 
 				// Update adapter status with all seen nodes
-				allSeenNodes := make(map[int]bool)
+				allSeenNodesMap := make(map[int]bool)
 				for _, gw := range app.gateways {
 					seenNodes := gw.GetSeenNodes()
 					for nodeID := range seenNodes {
-						allSeenNodes[nodeID] = true
+						allSeenNodesMap[nodeID] = true
 					}
 				}
+				
+				// Convert map to slice
+				var allSeenNodes []int
+				for nodeID := range allSeenNodesMap {
+					allSeenNodes = append(allSeenNodes, nodeID)
+				}
+				
 				if err := app.mqttClient.PublishAdapterStatus(app.config.AdapterTopics.TopicPrefix, allSeenNodes); err != nil {
 					app.logger.Error("Failed to publish adapter status", "error", err)
 				}
 			}
-		}(gatewayName, transport)
+		}(gatewayName, gTransport)
 	}
 }
 
@@ -309,8 +322,8 @@ func (app *Application) handleTCPMessages() {
 	for gatewayName, tcpServer := range app.tcpServers {
 		go func(gName string, server *tcp.Server) {
 			for message := range server.Receive() {
-				if transport, exists := app.transports[gName]; exists {
-					if err := transport.Send(message); err != nil {
+				if gTransport, exists := app.transports[gName]; exists {
+					if err := gTransport.Send(message); err != nil {
 						app.logger.Error("Failed to forward TCP message to MySensors", "gateway", gName, "error", err, "message", message.String())
 					}
 				}
@@ -342,7 +355,7 @@ func (app *Application) handleMQTTStateChanges() {
 					gatewayName = currentDevice.Gateway
 				}
 				
-				transport, exists := app.transports[gatewayName]
+				gTransport, exists := app.transports[gatewayName]
 				if !exists {
 					app.logger.Error("No transport found for gateway", "gateway", gatewayName, "device", deviceName)
 					return
@@ -351,7 +364,7 @@ func (app *Application) handleMQTTStateChanges() {
 				// Use configured ACK bit setting (default true to encourage device echoing)
 				requestAck := app.config.AdapterTopics.RequestAck != nil && *app.config.AdapterTopics.RequestAck
 				message := mysensors.NewSetMessageWithAck(nodeID, currentRelay.ChildID, mysensors.V_STATUS, mysensorsState, requestAck)
-				if err := transport.Send(message); err != nil {
+				if err := gTransport.Send(message); err != nil {
 					app.logger.Error("Failed to send state change to MySensors", "gateway", gatewayName, "error", err,
 						"device", deviceName, "component", componentName, "state", state)
 				} else {
@@ -477,9 +490,9 @@ func (app *Application) shutdown() error {
 	}
 
 	// Disconnect all transports
-	for gatewayName, transport := range app.transports {
+	for gatewayName, gTransport := range app.transports {
 		app.logger.Debug("Disconnecting transport", "gateway", gatewayName)
-		transport.Disconnect()
+		gTransport.Disconnect()
 	}
 
 	return nil
