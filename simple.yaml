@@ -1,0 +1,55 @@
+mysensors:
+  default:
+    ethernet:
+      host: "172.30.15.1"
+
+mqtt:
+  broker: "core-mosquitto"
+  username: "nippy"
+  password: "nippy"
+
+devices:
+  - name: "Relay 3 #1"
+    id: "relay_3_1"
+    node_id: 1
+    manufacturer: "Nippy"
+    model: "Relay 3"
+    sw_version: "1.0"
+    hw_version: "1.0"
+    relays:
+      - name: "Relay 1"
+        id: "relay_1"
+        child_id: 0
+      - name: "Relay 2"
+        id: "relay_2"
+        child_id: 1
+      - name: "Relay 3"
+        id: "relay_3"
+        child_id: 2
+
+  - name: "Input 6 #1"
+    id: "input_6_1"
+    node_id: 2
+    manufacturer: "Nippy"
+    model: "Input 6"
+    sw_version: "1.0"
+    hw_version: "1.0"
+    inputs:
+      - name: "Input Button 1"
+        id: "input_button_1"
+        child_id: 0
+      - name: "Input Button 2"
+        id: "input_button_2"
+        child_id: 1
+      - name: "Input Button 3"
+        id: "input_button_3"
+        child_id: 2
+      - name: "Input Button 4"
+        id: "input_button_4"
+        child_id: 3
+      - name: "Input Button 5"
+        id: "input_button_5"
+        child_id: 4
+      - name: "Input Button 6"
+        id: "input_button_6"
+        child_id: 5

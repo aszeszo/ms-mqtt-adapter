@@ -1,22 +1,44 @@
-log_level: "info"  # debug, info, warn, error
+# MySensors MQTT Adapter Configuration
+# This file shows all possible configuration options with their default values and examples
 
+# Log level for the adapter (default: "info")
+log_level: "info"  # Options: debug, info, warn, error
+
+# MySensors gateway configurations (at least one required)
+# Multiple gateways can be configured for different MySensors networks
 mysensors:
+  # Primary gateway (name can be anything, but "default" is used if only one gateway)
   default:
-    transport: "ethernet"  # ethernet, rs485
+    # Transport type (default: "ethernet")
+    transport: "ethernet"  # Options: ethernet, rs485
+    
+    # Ethernet transport configuration (required if transport: ethernet)
     ethernet:
-      host: "172.30.15.1"
-      port: 5003
+      host: "172.30.15.1"  # MySensors gateway IP address (required)
+      port: 5003           # MySensors gateway port (required)
+    
+    # RS485 transport configuration (required if transport: rs485) 
     rs485:
-      device: "/dev/ttyUSB0"
+      device: "/dev/ttyUSB0"  # Serial device path (required for rs485)
+    
+    # Gateway-specific settings
     gateway:
+      # Node ID assignment range
       node_id_range:
-        start: 1
-        end: 254
-      version_request_period: "5s"  # How often to send version requests to gateway
-      random_id_assignment: false   # false=sequential (default), true=random from pool
+        start: 1    # First assignable node ID (default: 1)
+        end: 254    # Last assignable node ID (default: 254)
+      
+      # How often to request version info from gateway (default: "5s")
+      version_request_period: "5s"
+      
+      # Node ID assignment strategy (default: false)
+      random_id_assignment: false  # false=sequential, true=random from pool
+    
+    # TCP message replication service (for external MySensors tools)
     tcp_service:
-      enabled: true
-      port: 5003  # TCP port for MySensors message replication
+      enabled: true  # Enable TCP service (default: true for single gateway, false for multi)
+      port: 5003     # TCP port for message replication (default: auto-assigned starting at 5003)
+
   # Example second gateway (uncomment to use multiple gateways)
   # garage:
   #   transport: "rs485"
@@ -32,172 +54,174 @@ mysensors:
   #     enabled: true
   #     port: 5004  # Must be different port than other gateways
 
+# MQTT broker configuration
 mqtt:
-  broker: "172.24.0.243"
-  port: 1883
-  username: "nippy"
-  password: "nippy"
-  client_id: "ms-mqtt-adapter"
+  broker: "172.24.0.243"            # MQTT broker address (required)
+  port: 1883                        # MQTT broker port (default: 1883)
+  username: "nippy"                 # MQTT username (optional)
+  password: "nippy"                 # MQTT password (optional)
+  client_id: "ms-mqtt-adapter"      # MQTT client ID (default: "ms-mqtt-adapter")
 
+# Adapter behavior configuration
 adapter:
+  # MQTT topic prefix for all adapter topics (default: "ms-mqtt-adapter")
   topic_prefix: "ms-mqtt-adapter"
-  homeassistant_discovery: true  # Enable/disable HomeAssistant auto-discovery
+  
+  # Enable Home Assistant auto-discovery (default: true)
+  homeassistant_discovery: true
+  
+  # Global optimistic mode setting (default: false)
+  # false = wait for device confirmation before updating state
+  # true = immediately update state on command (faster UI response)
   optimistic: false
-  request_ack: true  # Request ACK bit to encourage device echoing (default: true)
+  
+  # Request ACK bit in MySensors messages (default: true)
+  # Helps encourage device echoing for state confirmation
+  request_ack: true
+  
+  # Periodic device state synchronization
   sync:
-    enabled: true
-    period: "30s"
+    enabled: true      # Enable periodic sync (default: sync not enabled if not specified)
+    period: "30s"      # Sync interval (default: "30s")
 
+# Device definitions (defines MySensors devices for Home Assistant discovery)
 devices:
-  - name: "Relay 3 #1"
-    id: "relay_3_1"
-    node_id: 1
-    manufacturer: "Nippy"
-    model: "Nippy"
-    sw_version: "1.0"
-    hw_version: "1.0"
+  # Example relay device with various configurations
+  - name: "Smart Relay Controller"
+    id: "relay_controller_1"
+    node_id: 1                              # MySensors node ID
+    gateway: "default"                      # Gateway to use (optional, defaults to "default")
+    manufacturer: "ACME Electronics"        # Device manufacturer
+    model: "Smart Controller Pro"           # Device model
+    sw_version: "2.0.1"                    # Software version
+    hw_version: "1.2"                      # Hardware version
+    configuration_url: "http://192.168.1.100/config"  # Device config URL (optional)
+    suggested_area: "Basement"             # Suggested Home Assistant area (optional)
+    connections:                           # Device connections for Home Assistant (optional)
+      - ["mac", "AA:BB:CC:DD:EE:FF"]
+      - ["ip", "192.168.1.100"]
+    via_device: "gateway_device_id"        # Parent device ID (optional)
+    
     relays:
-      - name: "Relay 1"
-        id: "relay_1"
-        child_id: 0
-        initial_state: 0  # 0=OFF, 1=ON
-        icon: "hue:socket-eu"
-        device_class: "switch"
-      - name: "Relay 2"
-        id: "relay_2"
+      # Standard relay with global settings
+      - name: "Main Power Relay"
+        id: "main_power"
+        child_id: 0                        # MySensors child sensor ID
+        node_id: 1                         # Override device node_id (optional)
+        gateway: "default"                 # Override device gateway (optional)
+        initial_state: 0                   # Initial state (0=OFF, 1=ON, default: 0)
+        icon: "mdi:power"                  # Home Assistant icon
+        device_class: "switch"             # Home Assistant device class
+        entity_category: "config"          # Home Assistant entity category (optional)
+        enabled_by_default: true           # Enable by default in HA (optional, default: true)
+        
+        # MQTT configuration (all optional)
+        availability_topic: "availability/relay1"     # Custom availability topic
+        payload_available: "online"                   # Payload for available state
+        payload_not_available: "offline"              # Payload for unavailable state
+        payload_on: "ON"                              # Payload for on state (default: "1")
+        payload_off: "OFF"                            # Payload for off state (default: "0")
+        state_on: "1"                                 # State value for on (default: "1")
+        state_off: "0"                                # State value for off (default: "0")
+        qos: 0                                        # MQTT QoS level (optional)
+        retain: false                                 # MQTT retain flag (optional)
+        
+        # Per-relay optimistic override (optional)
+        optimistic: false                             # Override global optimistic setting
+        
+        # MQTT template configuration (optional)
+        json_attributes_topic: "attributes/relay1"    # JSON attributes topic
+        json_attributes_template: "{{ value_json }}"  # JSON attributes template
+        state_value_template: "{{ value }}"           # State value template
+        command_template: "{{ value }}"               # Command template
+
+      # Fast response relay (optimistic mode)
+      - name: "Instant Response Light"
+        id: "instant_light"
         child_id: 1
         initial_state: 0
-        icon: "hue:socket-eu"
+        icon: "mdi:lightbulb"
         device_class: "switch"
-      - name: "Relay 3"
-        id: "relay_3"
+        optimistic: true                   # Override: immediate response for fast UI
+
+      # Critical relay (explicit non-optimistic)
+      - name: "Security System"
+        id: "security_system"
         child_id: 2
         initial_state: 0
-        icon: "hue:socket-eu"
+        icon: "mdi:security"
         device_class: "switch"
+        optimistic: false                  # Explicit: must wait for device confirmation
 
-  - name: "Input 6 #1"
-    id: "input_6_1"
+  # Example input device (sensors/buttons)
+  - name: "Input Button Panel"
+    id: "input_panel_1"
     node_id: 2
-    manufacturer: "Nippy"
-    model: "Nippy"
-    sw_version: "1.0"
+    manufacturer: "ACME Electronics"
+    model: "Button Panel Pro"
+    sw_version: "1.5"
     hw_version: "1.0"
+    
     inputs:
-      - name: "Input Button 1"
-        id: "input_button_1"
-        child_id: 0
-        icon: "hue:friends-of-hue-senic"
-      - name: "Input Button 2"
-        id: "input_button_2"
-        child_id: 1
-        icon: "hue:friends-of-hue-senic"
-      - name: "Input Button 3"
-        id: "input_button_3"
-        child_id: 2
-        icon: "hue:friends-of-hue-senic"
-      - name: "Input Button 4"
-        id: "input_button_4"
-        child_id: 3
-        icon: "hue:friends-of-hue-senic"
-      - name: "Input Button 5"
-        id: "input_button_5"
-        child_id: 4
-        icon: "hue:friends-of-hue-senic"
-      - name: "Input Button 6"
-        id: "input_button_6"
-        child_id: 5
-        icon: "hue:friends-of-hue-senic"
+      # Standard binary sensor input
+      - name: "Button 1"
+        id: "button_1"
+        child_id: 0                        # MySensors child sensor ID
+        node_id: 2                         # Override device node_id (optional)
+        gateway: "default"                 # Override device gateway (optional)
+        icon: "mdi:gesture-tap-button"     # Home Assistant icon
+        device_class: "button"             # Home Assistant device class
+        entity_category: "diagnostic"      # Home Assistant entity category (optional)
+        enabled_by_default: true           # Enable by default in HA (optional)
+        
+        # MQTT configuration (all optional)
+        availability_topic: "availability/button1"    # Custom availability topic
+        payload_available: "online"                   # Payload for available state
+        payload_not_available: "offline"              # Payload for unavailable state
+        payload_on: "PRESSED"                         # Payload for on state (default: "1")
+        payload_off: "RELEASED"                       # Payload for off state (default: "0")
+        state_on: "1"                                 # State value for on (default: "1")
+        state_off: "0"                                # State value for off (default: "0")
+        qos: 0                                        # MQTT QoS level (optional)
+        off_delay: 5                                  # Auto-off delay in seconds (optional)
+        expire_after: 300                             # State expiration time in seconds (optional)
+        
+        # MQTT template configuration (optional)
+        json_attributes_topic: "attributes/button1"   # JSON attributes topic
+        json_attributes_template: "{{ value_json }}"  # JSON attributes template
+        value_template: "{{ value }}"                 # Value template
 
-  - name: "Relay 3 #2"
-    id: "relay_3_2"
-    node_id: 3
-    manufacturer: "Nippy"
-    model: "Nippy"
+      # Motion sensor example
+      - name: "Motion Sensor"
+        id: "motion_1"
+        child_id: 1
+        icon: "mdi:motion-sensor"
+        device_class: "motion"
+        off_delay: 10                      # Auto-off after 10 seconds of no motion
+
+  # Multi-gateway device example
+  - name: "Garage Door Controller"
+    id: "garage_controller"
+    node_id: 50
+    gateway: "garage"                      # Uses different gateway
+    manufacturer: "ACME Electronics"
+    model: "Garage Pro"
     sw_version: "1.0"
     hw_version: "1.0"
+    
     relays:
-      - name: "Relay 1"
-        id: "relay_1"
+      - name: "Garage Door"
+        id: "garage_door"
         child_id: 0
         initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-      - name: "Relay 2"
-        id: "relay_2"
-        child_id: 1
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-      - name: "Relay 3"
-        id: "relay_3"
-        child_id: 2
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
+        icon: "mdi:garage"
+        device_class: "garage"
 
-  - name: "Relay 9 #2"
-    id: "relay_9_2"
-    node_id: 100
-    manufacturer: "Nippy"
-    model: "Nippy"
-    sw_version: "1.0"
-    hw_version: "1.0"
-    relays:
-      - name: "Relay 1"
-        id: "relay_1"
-        child_id: 0
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-        # Uses global optimistic: false (waits for device confirmation)
-      - name: "Relay 2 (Fast)"
-        id: "relay_2"
-        child_id: 1
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-        optimistic: true  # Override: immediate response for fast UI
-      - name: "Relay 3 (Critical)"
-        id: "relay_3"
-        child_id: 2
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-        optimistic: false  # Explicit: must wait for device confirmation
-      - name: "Relay 4"
-        id: "relay_4"
-        child_id: 3
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-      - name: "Relay 5"
-        id: "relay_5"
-        child_id: 4
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-      - name: "Relay 6"
-        id: "relay_6"
-        child_id: 5
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-      - name: "Relay 7"
-        id: "relay_7"
-        child_id: 6
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-      - name: "Relay 8"
-        id: "relay_8"
-        child_id: 7
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
-      - name: "Relay 9"
-        id: "relay_9"
-        child_id: 8
-        initial_state: 0
-        icon: "hue:socket-eu"
-        device_class: "switch"
+# Notes:
+# - All boolean values (true/false) can be omitted to use defaults
+# - String values in quotes, numbers without quotes
+# - Duration values use Go duration format: "5s", "30s", "1m", "1h"
+# - MySensors node_id and child_id must match your MySensors device configuration
+# - Individual relay/input settings override device settings, which override global settings
+# - For multiple gateways, ensure TCP service ports are unique
+# - Device IDs and relay/input IDs must be unique across the entire configuration
