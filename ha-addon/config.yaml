@@ -14,7 +14,8 @@ boot: auto
 init: false
 image: ghcr.io/aszeszo/ms-mqtt-adapter
 map:
-  - addon_config:/data
+  - addon_config:
+      path: /data
 ports:
   5003/tcp: 5003
   5004/tcp: 5004
