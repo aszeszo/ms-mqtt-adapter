@@ -254,12 +254,10 @@ func (app *Application) publishDiscovery() error {
 	// Publish seen nodes for each gateway separately and combined
 	allSeenNodesMap := make(map[int]bool)
 	for gatewayName, gateway := range app.gateways {
-		seenNodes := gateway.GetSeenNodes()
+		gatewaySeenNodes := gateway.GetSeenNodes() // Already returns []int
 		
-		// Convert map to slice for this gateway
-		var gatewaySeenNodes []int
-		for nodeID := range seenNodes {
-			gatewaySeenNodes = append(gatewaySeenNodes, nodeID)
+		// Add to combined map
+		for _, nodeID := range gatewaySeenNodes {
 			allSeenNodesMap[nodeID] = true
 		}
 		
@@ -306,13 +304,7 @@ func (app *Application) handleMySensorsMessages() {
 
 				// Publish gateway-specific status and combined status
 				if gateway, exists := app.gateways[gName]; exists {
-					seenNodes := gateway.GetSeenNodes()
-					
-					// Convert map to slice for this gateway
-					var gatewaySeenNodes []int
-					for nodeID := range seenNodes {
-						gatewaySeenNodes = append(gatewaySeenNodes, nodeID)
-					}
+					gatewaySeenNodes := gateway.GetSeenNodes() // Already returns []int
 					
 					// Publish gateway-specific seen nodes
 					if err := app.mqttClient.PublishGatewayAdapterStatus(app.config.AdapterTopics.TopicPrefix, gName, gatewaySeenNodes); err != nil {
@@ -323,8 +315,8 @@ func (app *Application) handleMySensorsMessages() {
 				// Update combined adapter status with all seen nodes
 				allSeenNodesMap := make(map[int]bool)
 				for _, gw := range app.gateways {
-					seenNodes := gw.GetSeenNodes()
-					for nodeID := range seenNodes {
+					seenNodes := gw.GetSeenNodes() // Already returns []int
+					for _, nodeID := range seenNodes {
 						allSeenNodesMap[nodeID] = true
 					}
 				}

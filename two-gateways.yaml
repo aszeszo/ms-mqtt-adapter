@@ -1,0 +1,133 @@
+log_level: "info"  # debug, info, warn, error
+
+mysensors:
+  default:
+    ethernet:
+      host: "172.30.15.1"
+      port: 5003
+    gateway:
+      node_id_range:
+        start: 1
+        end: 254
+      random_id_assignment: true
+    tcp_service:
+      enabled: true
+      port: 5003
+  gateway2:
+    ethernet:
+      host: "172.30.16.1"
+      port: 5003
+    gateway:
+      node_id_range:
+        start: 1
+        end: 254
+      random_id_assignment: true
+    tcp_service:
+      enabled: true
+      port: 5004
+
+mqtt:
+  broker: "172.24.0.243"
+  port: 1883
+  username: "nippy"
+  password: "nippy"
+  client_id: "ms-mqtt-adapter"
+
+sync:
+  enabled: true
+  period: "30s"
+
+adapter:
+  topic_prefix: "ms-mqtt-adapter"
+  homeassistant_discovery: true  # Enable/disable HomeAssistant auto-discovery
+  optimistic_mode: false
+  request_ack: true  # Request ACK bit to encourage device echoing (default: true)
+
+devices:
+  - name: "Relay 3 #1"
+    id: "relay_3_1"
+    gateway: gateway2
+    node_id: 1
+    manufacturer: "Nippy"
+    model: "Nippy"
+    sw_version: "1.0"
+    hw_version: "1.0"
+    relays:
+      - name: "Relay 1"
+        id: "relay_1"
+        child_id: 0
+        initial_state: 0  # 0=OFF, 1=ON
+        icon: "hue:socket-eu"
+        device_class: "switch"
+      - name: "Relay 2"
+        id: "relay_2"
+        child_id: 1
+        initial_state: 0
+        icon: "hue:socket-eu"
+        device_class: "switch"
+      - name: "Relay 3"
+        id: "relay_3"
+        child_id: 2
+        initial_state: 0
+        icon: "hue:socket-eu"
+        device_class: "switch"
+
+  - name: "Input 6 #1"
+    id: "input_6_1"
+    node_id: 2
+    manufacturer: "Nippy"
+    model: "Nippy"
+    sw_version: "1.0"
+    hw_version: "1.0"
+    inputs:
+      - name: "Input Button 1"
+        id: "input_button_1"
+        child_id: 0
+        icon: "hue:friends-of-hue-senic"
+      - name: "Input Button 2"
+        id: "input_button_2"
+        child_id: 1
+        icon: "hue:friends-of-hue-senic"
+      - name: "Input Button 3"
+        id: "input_button_3"
+        child_id: 2
+        icon: "hue:friends-of-hue-senic"
+      - name: "Input Button 4"
+        id: "input_button_4"
+        child_id: 3
+        icon: "hue:friends-of-hue-senic"
+      - name: "Input Button 5"
+        id: "input_button_5"
+        child_id: 4
+        icon: "hue:friends-of-hue-senic"
+      - name: "Input Button 6"
+        id: "input_button_6"
+        child_id: 5
+        icon: "hue:friends-of-hue-senic"
+
+  - name: "Relay 3 #2"
+    id: "relay_3_2"
+    node_id: 159
+    manufacturer: "Nippy"
+    model: "Nippy"
+    sw_version: "1.0"
+    hw_version: "1.0"
+    relays:
+      - name: "Relay 1"
+        id: "relay_1"
+        child_id: 0
+        initial_state: 0
+        icon: "hue:socket-eu"
+        device_class: "switch"
+      - name: "Relay 2"
+        id: "relay_2"
+        child_id: 1
+        initial_state: 0
+        icon: "hue:socket-eu"
+        device_class: "switch"
+      - name: "Relay 3"
+        id: "relay_3"
+        child_id: 2
+        initial_state: 0
+        icon: "hue:socket-eu"
+        device_class: "switch"

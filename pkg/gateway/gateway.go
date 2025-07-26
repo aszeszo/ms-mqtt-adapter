@@ -7,7 +7,6 @@ import (
 	"ms-mqtt-adapter/internal/mysensors"
 	"ms-mqtt-adapter/pkg/config"
 	"ms-mqtt-adapter/pkg/transport"
-	"sort"
 	"sync"
 	"time"
 )
@@ -17,17 +16,19 @@ type Gateway struct {
 	transport     transport.Transport
 	logger        *slog.Logger
 	seenNodes     map[int]bool
+	seenNodesOrder []int // Track order of node discovery
 	nodesMu       sync.RWMutex
 	nextNodeID    int
 }
 
 func NewGateway(gatewayConfig *config.GatewayConfig, transport transport.Transport, logger *slog.Logger) *Gateway {
 	return &Gateway{
-		gatewayConfig: gatewayConfig,
-		transport:     transport,
-		logger:        logger,
-		seenNodes:     make(map[int]bool),
-		nextNodeID:    gatewayConfig.NodeIDRange.Start,
+		gatewayConfig:  gatewayConfig,
+		transport:      transport,
+		logger:         logger,
+		seenNodes:      make(map[int]bool),
+		seenNodesOrder: make([]int, 0),
+		nextNodeID:     gatewayConfig.NodeIDRange.Start,
 	}
 }
 
@@ -137,7 +138,10 @@ func (g *Gateway) trackNode(nodeID int) {
 
 	g.nodesMu.Lock()
 	wasNew := !g.seenNodes[nodeID]
-	g.seenNodes[nodeID] = true
+	if wasNew {
+		g.seenNodes[nodeID] = true
+		g.seenNodesOrder = append(g.seenNodesOrder, nodeID)
+	}
 	g.nodesMu.Unlock()
 
 	if wasNew {
@@ -150,25 +154,18 @@ func (g *Gateway) printSeenNodes() {
 	g.nodesMu.RLock()
 	defer g.nodesMu.RUnlock()
 
-	var nodeIDs []int
-	for nodeID := range g.seenNodes {
-		nodeIDs = append(nodeIDs, nodeID)
-	}
-	sort.Ints(nodeIDs)
-
-	g.logger.Info("Known node IDs", "nodes", nodeIDs)
+	// Use discovery order instead of sorting
+	g.logger.Info("Known node IDs", "nodes", g.seenNodesOrder)
 }
 
 func (g *Gateway) GetSeenNodes() []int {
 	g.nodesMu.RLock()
 	defer g.nodesMu.RUnlock()
 
-	var nodeIDs []int
-	for nodeID := range g.seenNodes {
-		nodeIDs = append(nodeIDs, nodeID)
-	}
-	sort.Ints(nodeIDs)
-
+	// Return a copy to avoid race conditions
+	nodeIDs := make([]int, len(g.seenNodesOrder))
+	copy(nodeIDs, g.seenNodesOrder)
+	
 	return nodeIDs
 }
 
