@@ -79,55 +79,34 @@ type Device struct {
 	Connections      [][]string `yaml:"connections,omitempty"`
 	ViaDevice        string     `yaml:"via_device,omitempty"`
 	RequestAck       *bool      `yaml:"request_ack,omitempty"`
-	Relays           []Relay    `yaml:"relays"`
-	Outputs          []Output   `yaml:"outputs"`
-	Inputs           []Input    `yaml:"inputs"`
+	Entities         []Entity   `yaml:"entities"`
 }
 
-type Relay struct {
-	Name                   string `yaml:"name"`
-	ID                     string `yaml:"id"`
-	ChildID                int    `yaml:"child_id"`
-	NodeID                 *int   `yaml:"node_id,omitempty"`
-	Gateway                string `yaml:"gateway,omitempty"`
-	InitialState           int    `yaml:"initial_state"`
-	Icon                   string `yaml:"icon"`
-	DeviceClass            string `yaml:"device_class"`
-	EntityCategory         string `yaml:"entity_category,omitempty"`
-	EnabledByDefault       *bool  `yaml:"enabled_by_default,omitempty"`
-	AvailabilityTopic      string `yaml:"availability_topic,omitempty"`
-	PayloadAvailable       string `yaml:"payload_available,omitempty"`
-	PayloadNotAvailable    string `yaml:"payload_not_available,omitempty"`
-	PayloadOn              string `yaml:"payload_on,omitempty"`
-	PayloadOff             string `yaml:"payload_off,omitempty"`
-	StateOn                string `yaml:"state_on,omitempty"`
-	StateOff               string `yaml:"state_off,omitempty"`
-	QOS                    *int   `yaml:"qos,omitempty"`
-	Retain                 *bool  `yaml:"retain,omitempty"`
-	Optimistic             *bool  `yaml:"optimistic,omitempty"`
-	JSONAttributesTopic    string `yaml:"json_attributes_topic,omitempty"`
-	JSONAttributesTemplate string `yaml:"json_attributes_template,omitempty"`
-	StateValueTemplate     string `yaml:"state_value_template,omitempty"`
-	CommandTemplate        string `yaml:"command_template,omitempty"`
-}
-
-type Output struct {
+// Entity represents a unified MySensors entity that can be an input (sensor), output (actuator), or both
+type Entity struct {
 	Name                   string `yaml:"name"`
 	ID                     string `yaml:"id"`
 	ChildID                int    `yaml:"child_id"`
 	NodeID                 *int   `yaml:"node_id,omitempty"`
 	Gateway                string `yaml:"gateway,omitempty"`
 	
-	// Output type determines the MySensors variable type and Home Assistant entity type
-	OutputType             string `yaml:"output_type,omitempty"`         // "switch", "light", "cover", "text", "number", "select", etc.
+	// Entity type determines the Home Assistant entity type and capabilities
+	EntityType             string `yaml:"entity_type"`                   // "switch", "light", "cover", "text", "number", "select", "sensor", "binary_sensor", etc.
 	VariableType           string `yaml:"variable_type,omitempty"`       // MySensors variable type override (e.g., "V_STATUS", "V_TEXT", "V_PERCENTAGE")
 	
-	// Initial and range values
+	// Entity capabilities - determines if entity can read/write
+	ReadOnly               *bool   `yaml:"read_only,omitempty"`           // false = can receive commands, true = sensor only (default: based on entity_type)
+	WriteOnly              *bool   `yaml:"write_only,omitempty"`          // true = actuator only, false = can report state (default: false)
+	
+	// Initial and range values (for outputs/actuators)
 	InitialValue           string  `yaml:"initial_value,omitempty"`       // Initial value (can be text, number, etc.)
-	MinValue               *float64 `yaml:"min_value,omitempty"`          // For number/range outputs
-	MaxValue               *float64 `yaml:"max_value,omitempty"`          // For number/range outputs
-	Step                   *float64 `yaml:"step,omitempty"`               // For number outputs
-	Options                []string `yaml:"options,omitempty"`            // For select outputs
+	MinValue               *float64 `yaml:"min_value,omitempty"`          // For number entities
+	MaxValue               *float64 `yaml:"max_value,omitempty"`          // For number entities
+	Step                   *float64 `yaml:"step,omitempty"`               // For number entities
+	Options                []string `yaml:"options,omitempty"`            // For select entities
+	
+	// Sensor configuration (for inputs/sensors)
+	StateClass             string `yaml:"state_class,omitempty"`         // "measurement", "total", "total_increasing"
 	
 	// Home Assistant configuration
 	Icon                   string `yaml:"icon"`
@@ -140,18 +119,20 @@ type Output struct {
 	AvailabilityTopic      string `yaml:"availability_topic,omitempty"`
 	PayloadAvailable       string `yaml:"payload_available,omitempty"`
 	PayloadNotAvailable    string `yaml:"payload_not_available,omitempty"`
-	PayloadOn              string `yaml:"payload_on,omitempty"`           // For switch/light outputs
-	PayloadOff             string `yaml:"payload_off,omitempty"`          // For switch/light outputs
-	StateOn                string `yaml:"state_on,omitempty"`             // For switch/light outputs
-	StateOff               string `yaml:"state_off,omitempty"`            // For switch/light outputs
-	PayloadOpen            string `yaml:"payload_open,omitempty"`         // For cover outputs
-	PayloadClose           string `yaml:"payload_close,omitempty"`        // For cover outputs
-	PayloadStop            string `yaml:"payload_stop,omitempty"`         // For cover outputs
-	StateOpen              string `yaml:"state_open,omitempty"`           // For cover outputs
-	StateClosed            string `yaml:"state_closed,omitempty"`         // For cover outputs
+	PayloadOn              string `yaml:"payload_on,omitempty"`           // For switch/light entities
+	PayloadOff             string `yaml:"payload_off,omitempty"`          // For switch/light entities
+	StateOn                string `yaml:"state_on,omitempty"`             // For switch/light entities
+	StateOff               string `yaml:"state_off,omitempty"`            // For switch/light entities
+	PayloadOpen            string `yaml:"payload_open,omitempty"`         // For cover entities
+	PayloadClose           string `yaml:"payload_close,omitempty"`        // For cover entities
+	PayloadStop            string `yaml:"payload_stop,omitempty"`         // For cover entities
+	StateOpen              string `yaml:"state_open,omitempty"`           // For cover entities
+	StateClosed            string `yaml:"state_closed,omitempty"`         // For cover entities
 	QOS                    *int   `yaml:"qos,omitempty"`
 	Retain                 *bool  `yaml:"retain,omitempty"`
 	Optimistic             *bool  `yaml:"optimistic,omitempty"`
+	OffDelay               *int   `yaml:"off_delay,omitempty"`            // For binary sensors
+	ExpireAfter            *int   `yaml:"expire_after,omitempty"`         // For sensors
 	
 	// MQTT template configuration (optional)
 	JSONAttributesTopic    string `yaml:"json_attributes_topic,omitempty"`
@@ -161,37 +142,6 @@ type Output struct {
 	ValueTemplate          string `yaml:"value_template,omitempty"`
 }
 
-type Input struct {
-	Name             string `yaml:"name"`
-	ID               string `yaml:"id"`
-	ChildID          int    `yaml:"child_id"`
-	NodeID           *int   `yaml:"node_id,omitempty"`
-	Gateway          string `yaml:"gateway,omitempty"`
-	Icon             string `yaml:"icon"`
-	DeviceClass      string `yaml:"device_class"`
-	EntityCategory   string `yaml:"entity_category,omitempty"`
-	EnabledByDefault *bool  `yaml:"enabled_by_default,omitempty"`
-
-	// Sensor type determines how the input is processed (binary vs numeric sensors)
-	SensorType        string `yaml:"sensor_type,omitempty"`         // "binary", "temperature", "humidity", "battery", "voltage", "current", "pressure", "level"
-	UnitOfMeasurement string `yaml:"unit_of_measurement,omitempty"` // "°C", "%", "V", "A", "hPa", etc.
-	StateClass        string `yaml:"state_class,omitempty"`         // "measurement", "total", "total_increasing"
-
-	// MQTT configuration (all optional)
-	AvailabilityTopic      string `yaml:"availability_topic,omitempty"`
-	PayloadAvailable       string `yaml:"payload_available,omitempty"`
-	PayloadNotAvailable    string `yaml:"payload_not_available,omitempty"`
-	PayloadOn              string `yaml:"payload_on,omitempty"`
-	PayloadOff             string `yaml:"payload_off,omitempty"`
-	StateOn                string `yaml:"state_on,omitempty"`
-	StateOff               string `yaml:"state_off,omitempty"`
-	QOS                    *int   `yaml:"qos,omitempty"`
-	OffDelay               *int   `yaml:"off_delay,omitempty"`
-	ExpireAfter            *int   `yaml:"expire_after,omitempty"`
-	JSONAttributesTopic    string `yaml:"json_attributes_topic,omitempty"`
-	JSONAttributesTemplate string `yaml:"json_attributes_template,omitempty"`
-	ValueTemplate          string `yaml:"value_template,omitempty"`
-}
 
 func LoadConfig(filename string) (*Config, error) {
 	data, err := os.ReadFile(filename)
@@ -254,83 +204,85 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("mqtt broker is required")
 	}
 
-	// Validate that relay node_id:child_id combinations are unique (1:1 mapping only)
-	relayTargets := make(map[string][]string) // key: "nodeID:childID", value: list of device:relay names
+	// Validate that entity node_id:child_id combinations are unique
+	entityTargets := make(map[string][]string) // key: "nodeID:childID", value: list of device:entity names
 
-	for _, device := range config.Devices {
-		for _, relay := range device.Relays {
-			effectiveNodeID := device.NodeID
-			if relay.NodeID != nil {
-				effectiveNodeID = *relay.NodeID
-			}
-
-			target := fmt.Sprintf("%d:%d", effectiveNodeID, relay.ChildID)
-			relayName := fmt.Sprintf("%s:%s", device.Name, relay.Name)
-			relayTargets[target] = append(relayTargets[target], relayName)
-		}
-		
-		// Also validate outputs
-		for _, output := range device.Outputs {
-			effectiveNodeID := device.NodeID
-			if output.NodeID != nil {
-				effectiveNodeID = *output.NodeID
-			}
-
-			target := fmt.Sprintf("%d:%d", effectiveNodeID, output.ChildID)
-			outputName := fmt.Sprintf("%s:%s", device.Name, output.Name)
-			relayTargets[target] = append(relayTargets[target], outputName)
-		}
-	}
-
-	// Check for duplicate targets (relays and outputs combined)
-	for target, names := range relayTargets {
-		if len(names) > 1 {
-			return fmt.Errorf("duplicate mapping detected for MySensors target %s: %v - relays and outputs must have unique node_id:child_id combinations", target, names)
-		}
-	}
-
-	// Validate input sensor types
-	validSensorTypes := map[string]bool{
-		"binary":       true,
-		"temperature":  true,
-		"humidity":     true,
-		"battery":      true,
-		"voltage":      true,
-		"current":      true,
-		"pressure":     true,
-		"level":        true,
-		"percentage":   true,
-		"weight":       true,
-		"distance":     true,
-		"light_level":  true,
-		"watt":         true,
-		"kwh":          true,
-		"flow":         true,
-		"volume":       true,
-		"ph":           true,
-		"orp":          true,
-		"ec":           true,
-		"var":          true,
-		"va":           true,
-		"power_factor": true,
+	// Validate entities
+	validEntityTypes := map[string]bool{
+		// Actuator types
+		"switch":       true,
+		"light":        true,
+		"dimmer":       true,
+		"cover":        true,
 		"text":         true,
-		"custom":       true,
-		"position":     true,
-		"uv":           true,
-		"rain":         true,
-		"rainrate":     true,
-		"wind":         true,
-		"gust":         true,
-		"direction":    true,
-		"impedance":    true,
+		"number":       true,
+		"select":       true,
+		"climate":      true,
+		"rgb_light":    true,
+		"rgbw_light":   true,
+		
+		// Sensor types
+		"sensor":        true,
+		"binary_sensor": true,
+		"temperature":   true,
+		"humidity":      true,
+		"battery":       true,
+		"voltage":       true,
+		"current":       true,
+		"pressure":      true,
+		"level":         true,
+		"percentage":    true,
+		"weight":        true,
+		"distance":      true,
+		"light_level":   true,
+		"watt":          true,
+		"kwh":           true,
+		"flow":          true,
+		"volume":        true,
+		"ph":            true,
+		"orp":           true,
+		"ec":            true,
+		"var":           true,
+		"va":            true,
+		"power_factor":  true,
+		"custom":        true,
+		"position":      true,
+		"uv":            true,
+		"rain":          true,
+		"rainrate":      true,
+		"wind":          true,
+		"gust":          true,
+		"direction":     true,
+		"impedance":     true,
 	}
 
 	for _, device := range config.Devices {
-		for _, input := range device.Inputs {
-			if input.SensorType != "" && !validSensorTypes[input.SensorType] {
-				return fmt.Errorf("invalid sensor_type '%s' for input '%s' in device '%s'. Valid types: binary, temperature, humidity, battery, voltage, current, pressure, level, percentage, weight, distance, light_level, watt, kwh, flow, volume, ph, orp, ec, var, va, power_factor, text, custom, position, uv, rain, rainrate, wind, gust, direction, impedance",
-					input.SensorType, input.Name, device.Name)
+		// Validate entities and add them to the unique target check
+		for _, entity := range device.Entities {
+			// Validate entity type
+			if entity.EntityType == "" {
+				return fmt.Errorf("entity_type is required for entity '%s' in device '%s'", entity.Name, device.Name)
 			}
+			if !validEntityTypes[entity.EntityType] {
+				return fmt.Errorf("invalid entity_type '%s' for entity '%s' in device '%s'", entity.EntityType, entity.Name, device.Name)
+			}
+
+			// Add to unique target validation
+			effectiveNodeID := device.NodeID
+			if entity.NodeID != nil {
+				effectiveNodeID = *entity.NodeID
+			}
+
+			target := fmt.Sprintf("%d:%d", effectiveNodeID, entity.ChildID)
+			entityName := fmt.Sprintf("%s:%s", device.Name, entity.Name)
+			entityTargets[target] = append(entityTargets[target], entityName)
+		}
+	}
+
+	// Check for duplicate targets
+	for target, names := range entityTargets {
+		if len(names) > 1 {
+			return fmt.Errorf("duplicate mapping detected for MySensors target %s: %v - all entities must have unique node_id:child_id combinations", target, names)
 		}
 	}
 
@@ -473,6 +425,142 @@ func GetMySensorsVariableTypeForOutput(outputType, variableTypeOverride string) 
 	return mysensors.V_STATUS, false
 }
 
+// Entity helper functions
+
+// IsReadOnly returns true if the entity is read-only (sensor)
+func (e *Entity) IsReadOnly() bool {
+	if e.ReadOnly != nil {
+		return *e.ReadOnly
+	}
+	// Default based on entity type
+	switch e.EntityType {
+	case "sensor", "binary_sensor":
+		return true
+	default:
+		return false
+	}
+}
+
+// IsWriteOnly returns true if the entity is write-only (actuator)
+func (e *Entity) IsWriteOnly() bool {
+	if e.WriteOnly != nil {
+		return *e.WriteOnly
+	}
+	return false // Default to false (can report state)
+}
+
+// CanReceiveCommands returns true if the entity can receive MQTT commands
+func (e *Entity) CanReceiveCommands() bool {
+	return !e.IsReadOnly()
+}
+
+// CanReportState returns true if the entity can report state via MQTT
+func (e *Entity) CanReportState() bool {
+	return !e.IsWriteOnly()
+}
+
+// GetMySensorsVariableTypeForEntity returns the MySensors variable type for an entity
+func GetMySensorsVariableTypeForEntity(entityType, variableTypeOverride string) (mysensors.VariableType, bool) {
+	// If variable type is explicitly specified, use it
+	if variableTypeOverride != "" {
+		mapping := map[string]mysensors.VariableType{
+			"V_STATUS":             mysensors.V_STATUS,
+			"V_PERCENTAGE":         mysensors.V_PERCENTAGE,
+			"V_TEXT":               mysensors.V_TEXT,
+			"V_TEMP":               mysensors.V_TEMP,
+			"V_HUM":                mysensors.V_HUM,
+			"V_PRESSURE":           mysensors.V_PRESSURE,
+			"V_VOLTAGE":            mysensors.V_VOLTAGE,
+			"V_CURRENT":            mysensors.V_CURRENT,
+			"V_LEVEL":              mysensors.V_LEVEL,
+			"V_WATT":               mysensors.V_WATT,
+			"V_KWH":                mysensors.V_KWH,
+			"V_DISTANCE":           mysensors.V_DISTANCE,
+			"V_WEIGHT":             mysensors.V_WEIGHT,
+			"V_LIGHT_LEVEL":        mysensors.V_LIGHT_LEVEL,
+			"V_FLOW":               mysensors.V_FLOW,
+			"V_VOLUME":             mysensors.V_VOLUME,
+			"V_UP":                 mysensors.V_UP,
+			"V_DOWN":               mysensors.V_DOWN,
+			"V_STOP":               mysensors.V_STOP,
+			"V_RGB":                mysensors.V_RGB,
+			"V_RGBW":               mysensors.V_RGBW,
+			"V_HVAC_SETPOINT_HEAT": mysensors.V_HVAC_SETPOINT_HEAT,
+			"V_HVAC_SETPOINT_COOL": mysensors.V_HVAC_SETPOINT_COOL,
+			"V_HVAC_FLOW_MODE":     mysensors.V_HVAC_FLOW_MODE,
+			"V_CUSTOM":             mysensors.V_CUSTOM,
+			"V_POSITION":           mysensors.V_POSITION,
+			"V_IR_SEND":            mysensors.V_IR_SEND,
+			"V_PH":                 mysensors.V_PH,
+			"V_ORP":                mysensors.V_ORP,
+			"V_EC":                 mysensors.V_EC,
+			"V_VAR":                mysensors.V_VAR,
+			"V_VA":                 mysensors.V_VA,
+			"V_POWER_FACTOR":       mysensors.V_POWER_FACTOR,
+		}
+		
+		if varType, exists := mapping[variableTypeOverride]; exists {
+			return varType, true
+		}
+	}
+	
+	// Default mappings based on entity type
+	defaultMapping := map[string]mysensors.VariableType{
+		// Actuator types
+		"switch":       mysensors.V_STATUS,
+		"light":        mysensors.V_STATUS,
+		"dimmer":       mysensors.V_PERCENTAGE,
+		"cover":        mysensors.V_UP, // Cover uses V_UP/V_DOWN/V_STOP
+		"text":         mysensors.V_TEXT,
+		"number":       mysensors.V_PERCENTAGE,
+		"select":       mysensors.V_TEXT,
+		"climate":      mysensors.V_HVAC_SETPOINT_HEAT,
+		"rgb_light":    mysensors.V_RGB,
+		"rgbw_light":   mysensors.V_RGBW,
+		
+		// Sensor types (from existing GetMySensorsVariableType function)
+		"binary_sensor": mysensors.V_STATUS,
+		"sensor":        mysensors.V_CUSTOM, // Default sensor type
+		"temperature":   mysensors.V_TEMP,
+		"humidity":      mysensors.V_HUM,
+		"battery":       mysensors.V_PERCENTAGE,
+		"voltage":       mysensors.V_VOLTAGE,
+		"current":       mysensors.V_CURRENT,
+		"pressure":      mysensors.V_PRESSURE,
+		"level":         mysensors.V_LEVEL,
+		"percentage":    mysensors.V_PERCENTAGE,
+		"weight":        mysensors.V_WEIGHT,
+		"distance":      mysensors.V_DISTANCE,
+		"light_level":   mysensors.V_LIGHT_LEVEL,
+		"watt":          mysensors.V_WATT,
+		"kwh":           mysensors.V_KWH,
+		"flow":          mysensors.V_FLOW,
+		"volume":        mysensors.V_VOLUME,
+		"ph":            mysensors.V_PH,
+		"orp":           mysensors.V_ORP,
+		"ec":            mysensors.V_EC,
+		"var":           mysensors.V_VAR,
+		"va":            mysensors.V_VA,
+		"power_factor":  mysensors.V_POWER_FACTOR,
+		"custom":        mysensors.V_CUSTOM,
+		"position":      mysensors.V_POSITION,
+		"uv":            mysensors.V_UV,
+		"rain":          mysensors.V_RAIN,
+		"rainrate":      mysensors.V_RAINRATE,
+		"wind":          mysensors.V_WIND,
+		"gust":          mysensors.V_GUST,
+		"direction":     mysensors.V_DIRECTION,
+		"impedance":     mysensors.V_IMPEDANCE,
+	}
+	
+	if varType, exists := defaultMapping[entityType]; exists {
+		return varType, true
+	}
+	
+	// Default to V_STATUS for unknown types
+	return mysensors.V_STATUS, false
+}
+
 func setDefaults(config *Config) {
 	if config.LogLevel == "" {
 		config.LogLevel = "info"
@@ -565,250 +653,120 @@ func setDefaults(config *Config) {
 	}
 
 	for i := range config.Devices {
-		// Set defaults for relays
-		for j := range config.Devices[i].Relays {
-			if config.Devices[i].Relays[j].InitialState == 0 {
-				config.Devices[i].Relays[j].InitialState = 0
-			}
-		}
-		
-		// Set defaults for outputs
-		for j := range config.Devices[i].Outputs {
-			output := &config.Devices[i].Outputs[j]
+
+		// Set defaults for entities
+		for j := range config.Devices[i].Entities {
+			entity := &config.Devices[i].Entities[j]
 			
-			// Default output type to switch for backward compatibility
-			if output.OutputType == "" {
-				output.OutputType = "switch"
+			// Set default initial values based on entity type
+			if entity.InitialValue == "" {
+				switch entity.EntityType {
+				case "switch", "light", "binary_sensor":
+					entity.InitialValue = "0"
+				case "dimmer", "number", "percentage", "level":
+					entity.InitialValue = "0"
+				case "text", "select", "sensor":
+					entity.InitialValue = ""
+				default:
+					entity.InitialValue = "0"
+				}
 			}
 			
-			// Default initial value to "0" (OFF) for switch outputs
-			if output.InitialValue == "" && output.OutputType == "switch" {
-				output.InitialValue = "0"
-			}
-		}
-
-		// Set defaults for inputs
-		for j := range config.Devices[i].Inputs {
-			input := &config.Devices[i].Inputs[j]
-
-			// Default sensor type to binary for backward compatibility
-			if input.SensorType == "" {
-				input.SensorType = "binary"
-			}
-
-			// Set default units and state class based on sensor type
-			switch input.SensorType {
+			// Set default units and state class based on entity type
+			switch entity.EntityType {
 			case "temperature":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "°C"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "°C"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
-			case "humidity":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "%"
+			case "humidity", "battery", "percentage", "level":
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "%"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "battery":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "%"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-				if input.EntityCategory == "" {
-					input.EntityCategory = "diagnostic"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
 			case "voltage":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "V"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "V"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
 			case "current":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "A"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "A"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
 			case "pressure":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "hPa"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "hPa"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "level":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "%"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "percentage":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "%"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
 			case "weight":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "kg"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "kg"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
 			case "distance":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "m"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "m"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
 			case "light_level":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "lx"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "lx"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
 			case "watt":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "W"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "W"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
 			case "kwh":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "kWh"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "kWh"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "total_increasing"
+				if entity.StateClass == "" {
+					entity.StateClass = "total_increasing"
 				}
 			case "flow":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "m³/h"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "m³/h"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+				if entity.StateClass == "" {
+					entity.StateClass = "measurement"
 				}
 			case "volume":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "m³"
+				if entity.UnitOfMeasurement == "" {
+					entity.UnitOfMeasurement = "m³"
 				}
-				if input.StateClass == "" {
-					input.StateClass = "total_increasing"
+				if entity.StateClass == "" {
+					entity.StateClass = "total_increasing"
 				}
-			case "ph":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "pH"
+			case "dimmer", "number":
+				if entity.UnitOfMeasurement == "" && entity.EntityType == "number" {
+					entity.UnitOfMeasurement = ""
 				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
+			case "text", "select", "custom", "sensor", "binary_sensor":
+				// Text, select, and sensor entities don't have default units or state class
+				if entity.StateClass == "" && (entity.EntityType == "text" || entity.EntityType == "select" || entity.EntityType == "binary_sensor") {
+					entity.StateClass = ""
 				}
-			case "orp":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "mV"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "ec":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "μS/cm"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "var":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "var"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "va":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "VA"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "power_factor":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = ""
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "position":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "%"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "uv":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "UV index"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "rain":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "mm"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "total_increasing"
-				}
-			case "rainrate":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "mm/h"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "wind":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "m/s"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "gust":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "m/s"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "direction":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "°"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "impedance":
-				if input.UnitOfMeasurement == "" {
-					input.UnitOfMeasurement = "Ω"
-				}
-				if input.StateClass == "" {
-					input.StateClass = "measurement"
-				}
-			case "text", "custom":
-				// Text and custom sensors don't have units or state class by default
-				// Explicitly set empty state class (Home Assistant doesn't use state_class for text sensors)
-				input.StateClass = ""
-				// Don't set unit_of_measurement for text sensors unless explicitly specified
 			}
 		}
 	}

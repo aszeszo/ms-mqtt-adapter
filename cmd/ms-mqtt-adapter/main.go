@@ -542,21 +542,25 @@ func (app *Application) handleTCPMessages() {
 
 func (app *Application) handleMQTTStateChanges() {
 	for _, device := range app.config.Devices {
-		for _, relay := range device.Relays {
+		// Handle entities that can receive commands
+		for _, entity := range device.Entities {
+			// Only register handlers for entities that can receive commands
+			if !entity.CanReceiveCommands() {
+				continue
+			}
+			
 			// Create local copies to avoid closure issues
 			currentDevice := device
-			currentRelay := relay
+			currentEntity := entity
 			
 			// Create composite key for uniqueness across devices
-			compositeKey := fmt.Sprintf("%s_%s", device.ID, relay.ID)
+			compositeKey := fmt.Sprintf("%s_%s_entity", device.ID, entity.ID)
 			app.mqttClient.RegisterStateChangeHandler(compositeKey, func(deviceName, componentName string, state string) {
-				app.logger.Info("MQTT command received", "device", deviceName, "component", componentName, "state", state)
+				app.logger.Info("MQTT entity command received", "device", deviceName, "entity", componentName, "state", state)
 				
-				mysensorsState := state // State is already 0/1 format
-
 				nodeID := currentDevice.NodeID
-				if currentRelay.NodeID != nil {
-					nodeID = *currentRelay.NodeID
+				if currentEntity.NodeID != nil {
+					nodeID = *currentEntity.NodeID
 				}
 
 				// Determine which gateway to use
@@ -571,18 +575,25 @@ func (app *Application) handleMQTTStateChanges() {
 					return
 				}
 
+				// Get the MySensors variable type for this entity
+				varType, exists := config.GetMySensorsVariableTypeForEntity(currentEntity.EntityType, currentEntity.VariableType)
+				if !exists {
+					app.logger.Error("Unknown variable type for entity", "entity", componentName, "entityType", currentEntity.EntityType)
+					return
+				}
+
 				// Use configured ACK bit setting (priority: device > global > default true)
 				requestAck := app.config.GetEffectiveRequestAck(&currentDevice)
-				message := mysensors.NewSetMessageWithAck(nodeID, currentRelay.ChildID, mysensors.V_STATUS, mysensorsState, requestAck)
+				message := mysensors.NewSetMessageWithAck(nodeID, currentEntity.ChildID, varType, state, requestAck)
 				
-				app.logger.Info("Sending MySensors command", "gateway", gatewayName, "message", message.String())
+				app.logger.Info("Sending MySensors entity command", "gateway", gatewayName, "message", message.String())
 				
 				if err := gatewayTransport.Send(message); err != nil {
-					app.logger.Error("Failed to send state change to MySensors", "gateway", gatewayName, "error", err,
-						"device", deviceName, "component", componentName, "state", state)
+					app.logger.Error("Failed to send entity state change to MySensors", "gateway", gatewayName, "error", err,
+						"device", deviceName, "entity", componentName, "state", state)
 				} else {
-					app.logger.Info("MySensors command sent successfully", "gateway", gatewayName, "device", deviceName, "relay", componentName, 
-						"node_id", nodeID, "child_id", currentRelay.ChildID, "state", mysensorsState, "message", message.String())
+					app.logger.Info("MySensors entity command sent successfully", "gateway", gatewayName, "device", deviceName, "entity", componentName, 
+						"node_id", nodeID, "child_id", currentEntity.ChildID, "state", state, "message", message.String())
 				}
 			})
 		}
@@ -594,69 +605,34 @@ func (app *Application) handleDeviceMessage(message *mysensors.Message) {
 		return
 	}
 
-	relayHandled := false
-	var matchedInputs []string
+	var matchedEntities []string
 
 	for _, device := range app.config.Devices {
-		// Handle relays with 1:1 mapping (first match only)
-		if !relayHandled {
-			for _, relay := range device.Relays {
-				effectiveNodeID := device.NodeID
-				if relay.NodeID != nil {
-					effectiveNodeID = *relay.NodeID
-				}
-
-				if effectiveNodeID == message.NodeID && relay.ChildID == message.ChildID {
-					if message.IsSet() && message.GetVariableType() == mysensors.V_STATUS {
-						state := message.Payload // Use payload directly (should be 0 or 1)
-						if err := app.mqttClient.PublishDeviceState(device, relay, state); err != nil {
-							app.logger.Error("Failed to publish device state", "error", err,
-								"device", device.Name, "relay", relay.Name, "state", state)
-						} else {
-							app.logger.Debug("Published relay state", "device", device.Name, "relay", relay.Name,
-								"node_id", effectiveNodeID, "child_id", relay.ChildID, "state", state)
-						}
-						relayHandled = true
-						break // Only handle first matching relay
-					}
-				}
+		// Handle entities with many-to-many mapping (all matches)
+		for _, entity := range device.Entities {
+			// Only process entities that can report state
+			if !entity.CanReportState() {
+				continue
 			}
-		}
-
-		// Handle inputs with many-to-many mapping (all matches)
-		for _, input := range device.Inputs {
+			
 			effectiveNodeID := device.NodeID
-			if input.NodeID != nil {
-				effectiveNodeID = *input.NodeID
+			if entity.NodeID != nil {
+				effectiveNodeID = *entity.NodeID
 			}
 
-			if effectiveNodeID == message.NodeID && input.ChildID == message.ChildID {
+			if effectiveNodeID == message.NodeID && entity.ChildID == message.ChildID {
 				if message.IsSet() {
-					// Check if this is a sensor value message
-					if config.IsBinarySensor(input.SensorType) {
-						// Handle binary sensor (existing logic)
-						state := message.Payload // Use payload directly (should be 0 or 1)
-						if err := app.mqttClient.PublishInputState(device, input, state); err != nil {
-							app.logger.Error("Failed to publish input state", "error", err,
-								"device", device.Name, "input", input.Name, "state", state)
+					// Get expected variable type for this entity
+					expectedVarType, exists := config.GetMySensorsVariableTypeForEntity(entity.EntityType, entity.VariableType)
+					if exists && message.GetVariableType() == expectedVarType {
+						state := message.Payload
+						if err := app.mqttClient.PublishEntityState(device, entity, state); err != nil {
+							app.logger.Error("Failed to publish entity state", "error", err,
+								"device", device.Name, "entity", entity.Name, "state", state)
 						} else {
-							app.logger.Info("Input state changed", "device", device.Name, "input", input.Name,
-								"node_id", effectiveNodeID, "child_id", input.ChildID, "state", state)
-							matchedInputs = append(matchedInputs, fmt.Sprintf("%s:%s", device.Name, input.Name))
-						}
-					} else {
-						// Handle numeric sensor
-						expectedVarType, exists := config.GetMySensorsVariableType(input.SensorType)
-						if exists && message.GetVariableType() == expectedVarType {
-							sensorValue := message.Payload
-							if err := app.mqttClient.PublishSensorState(device, input, sensorValue); err != nil {
-								app.logger.Error("Failed to publish sensor state", "error", err,
-									"device", device.Name, "sensor", input.Name, "value", sensorValue)
-							} else {
-								app.logger.Info("Sensor value changed", "device", device.Name, "sensor", input.Name,
-									"sensor_type", input.SensorType, "node_id", effectiveNodeID, "child_id", input.ChildID, "value", sensorValue)
-								matchedInputs = append(matchedInputs, fmt.Sprintf("%s:%s", device.Name, input.Name))
-							}
+							app.logger.Info("Entity state changed", "device", device.Name, "entity", entity.Name,
+								"entity_type", entity.EntityType, "node_id", effectiveNodeID, "child_id", entity.ChildID, "state", state)
+							matchedEntities = append(matchedEntities, fmt.Sprintf("%s:%s", device.Name, entity.Name))
 						}
 					}
 				}
@@ -665,8 +641,8 @@ func (app *Application) handleDeviceMessage(message *mysensors.Message) {
 	}
 
 	// Log only when no matching device found
-	if len(matchedInputs) == 0 && !relayHandled {
-		app.logger.Debug("No matching device found for MySensors message",
+	if len(matchedEntities) == 0 {
+		app.logger.Debug("No matching entity found for MySensors message",
 			"node_id", message.NodeID, "child_id", message.ChildID)
 	}
 }

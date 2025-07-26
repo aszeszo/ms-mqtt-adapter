@@ -93,36 +93,25 @@ func (c *Client) IsConnected() bool {
 
 func (c *Client) subscribeToDevices() error {
 	for _, device := range c.devices {
-		// Subscribe to relay command topics
-		for _, relay := range device.Relays {
-			// Subscribe to device-specific topic using device_id/relay/subdevice_id format
-			topic := fmt.Sprintf("%s/devices/%s/relay/%s/set", c.adapterCfg.TopicPrefix, device.ID, relay.ID)
+		// Subscribe to entity command topics
+		for _, entity := range device.Entities {
+			// Only subscribe to command topics for entities that can receive commands
+			if !entity.CanReceiveCommands() {
+				continue
+			}
+			
+			// Subscribe to device-specific topic using device_id/entity/subdevice_id format
+			topic := fmt.Sprintf("%s/devices/%s/entity/%s/set", c.adapterCfg.TopicPrefix, device.ID, entity.ID)
 			// Create composite key for uniqueness across devices
-			compositeKey := fmt.Sprintf("%s_%s", device.ID, relay.ID)
-			token := c.client.Subscribe(topic, 0, c.createRelayHandler(device.Name, relay.Name, compositeKey, device.ID, relay.ID))
+			compositeKey := fmt.Sprintf("%s_%s_entity", device.ID, entity.ID)
+			token := c.client.Subscribe(topic, 0, c.createEntityHandler(device.Name, entity.Name, compositeKey, device.ID, entity.ID, entity.EntityType))
 			if !token.WaitTimeout(5 * time.Second) {
 				return fmt.Errorf("subscription timeout for topic %s", topic)
 			}
 			if token.Error() != nil {
 				return fmt.Errorf("subscription failed for topic %s: %w", topic, token.Error())
 			}
-			c.logger.Debug("Subscribed to relay topic", "topic", topic)
-		}
-		
-		// Subscribe to output command topics
-		for _, output := range device.Outputs {
-			// Subscribe to device-specific topic using device_id/output/subdevice_id format
-			topic := fmt.Sprintf("%s/devices/%s/output/%s/set", c.adapterCfg.TopicPrefix, device.ID, output.ID)
-			// Create composite key for uniqueness across devices
-			compositeKey := fmt.Sprintf("%s_%s_output", device.ID, output.ID)
-			token := c.client.Subscribe(topic, 0, c.createOutputHandler(device.Name, output.Name, compositeKey, device.ID, output.ID, output.OutputType))
-			if !token.WaitTimeout(5 * time.Second) {
-				return fmt.Errorf("subscription timeout for topic %s", topic)
-			}
-			if token.Error() != nil {
-				return fmt.Errorf("subscription failed for topic %s: %w", topic, token.Error())
-			}
-			c.logger.Debug("Subscribed to output topic", "topic", topic)
+			c.logger.Debug("Subscribed to entity topic", "topic", topic)
 		}
 	}
 	return nil
@@ -130,64 +119,23 @@ func (c *Client) subscribeToDevices() error {
 
 func (c *Client) subscribeToStateTopic() error {
 	for _, device := range c.devices {
-		// Subscribe to relay state topics
-		for _, relay := range device.Relays {
-			stateTopic := fmt.Sprintf("%s/devices/%s/relay/%s/state", c.adapterCfg.TopicPrefix, device.ID, relay.ID)
-			compositeKey := fmt.Sprintf("%s_%s", device.ID, relay.ID)
-			token := c.client.Subscribe(stateTopic, 0, c.createStateHandler(compositeKey))
+		// Subscribe to entity state topics
+		for _, entity := range device.Entities {
+			// Only subscribe to state topics for entities that can report state
+			if !entity.CanReportState() {
+				continue
+			}
+			
+			stateTopic := fmt.Sprintf("%s/devices/%s/entity/%s/state", c.adapterCfg.TopicPrefix, device.ID, entity.ID)
+			compositeKey := fmt.Sprintf("%s_%s_entity", device.ID, entity.ID)
+			token := c.client.Subscribe(stateTopic, 0, c.createEntityStateHandler(compositeKey, entity.EntityType))
 			if !token.WaitTimeout(5 * time.Second) {
-				return fmt.Errorf("subscription timeout for relay state topic %s", stateTopic)
+				return fmt.Errorf("subscription timeout for entity state topic %s", stateTopic)
 			}
 			if token.Error() != nil {
-				return fmt.Errorf("subscription failed for relay state topic %s: %w", stateTopic, token.Error())
+				return fmt.Errorf("subscription failed for entity state topic %s: %w", stateTopic, token.Error())
 			}
-			c.logger.Debug("Subscribed to relay state topic", "topic", stateTopic)
-		}
-		
-		// Subscribe to output state topics
-		for _, output := range device.Outputs {
-			stateTopic := fmt.Sprintf("%s/devices/%s/output/%s/state", c.adapterCfg.TopicPrefix, device.ID, output.ID)
-			compositeKey := fmt.Sprintf("%s_%s_output", device.ID, output.ID)
-			token := c.client.Subscribe(stateTopic, 0, c.createOutputStateHandler(compositeKey, output.OutputType))
-			if !token.WaitTimeout(5 * time.Second) {
-				return fmt.Errorf("subscription timeout for output state topic %s", stateTopic)
-			}
-			if token.Error() != nil {
-				return fmt.Errorf("subscription failed for output state topic %s: %w", stateTopic, token.Error())
-			}
-			c.logger.Debug("Subscribed to output state topic", "topic", stateTopic)
-		}
-
-		// Subscribe to input state topics (binary sensors)
-		for _, input := range device.Inputs {
-			if config.IsBinarySensor(input.SensorType) {
-				stateTopic := fmt.Sprintf("%s/devices/%s/input/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID)
-				compositeKey := fmt.Sprintf("%s_%s", device.ID, input.ID)
-				token := c.client.Subscribe(stateTopic, 0, c.createStateHandler(compositeKey))
-				if !token.WaitTimeout(5 * time.Second) {
-					return fmt.Errorf("subscription timeout for input state topic %s", stateTopic)
-				}
-				if token.Error() != nil {
-					return fmt.Errorf("subscription failed for input state topic %s: %w", stateTopic, token.Error())
-				}
-				c.logger.Debug("Subscribed to input state topic", "topic", stateTopic)
-			}
-		}
-
-		// Subscribe to sensor state topics (numeric sensors)
-		for _, input := range device.Inputs {
-			if !config.IsBinarySensor(input.SensorType) {
-				stateTopic := fmt.Sprintf("%s/devices/%s/sensor/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID)
-				compositeKey := fmt.Sprintf("%s_%s_sensor", device.ID, input.ID)
-				token := c.client.Subscribe(stateTopic, 0, c.createStateHandler(compositeKey))
-				if !token.WaitTimeout(5 * time.Second) {
-					return fmt.Errorf("subscription timeout for sensor state topic %s", stateTopic)
-				}
-				if token.Error() != nil {
-					return fmt.Errorf("subscription failed for sensor state topic %s: %w", stateTopic, token.Error())
-				}
-				c.logger.Debug("Subscribed to sensor state topic", "topic", stateTopic)
-			}
+			c.logger.Debug("Subscribed to entity state topic", "topic", stateTopic)
 		}
 	}
 	return nil
@@ -225,100 +173,39 @@ func (c *Client) createStateHandler(uniqueID string) mqtt.MessageHandler {
 	}
 }
 
-func (c *Client) createOutputStateHandler(uniqueID string, outputType string) mqtt.MessageHandler {
-	return func(client mqtt.Client, msg mqtt.Message) {
-		payload := string(msg.Payload())
-		c.logger.Debug("Received retained output state message", "topic", msg.Topic(), "payload", payload, "outputType", outputType)
 
-		// Skip empty payloads (might be cleared retained messages)
-		if len(payload) == 0 {
-			c.logger.Debug("Skipping empty payload (cleared retained message)", "topic", msg.Topic())
-			return
-		}
-
-		// Validate payload based on output type (use the same validation as command validation)
-		if !c.validateOutputPayload(outputType, payload) {
-			c.logger.Warn("Invalid retained output state payload", "outputType", outputType, "payload", payload, "topic", msg.Topic())
-			return
-		}
-
-		// Store the output state
-		c.stateMu.Lock()
-		c.states[uniqueID] = payload
-		c.stateMu.Unlock()
-		
-		c.logger.Debug("Stored retained output state", "uniqueID", uniqueID, "payload", payload)
-	}
-}
-
-func (c *Client) createRelayHandler(deviceName, relayName, compositeKey, deviceID, relayID string) mqtt.MessageHandler {
+func (c *Client) createEntityHandler(deviceName, entityName, compositeKey, deviceID, entityID, entityType string) mqtt.MessageHandler {
 	return func(client mqtt.Client, msg mqtt.Message) {
 		payload := string(msg.Payload())
 		c.logger.Debug("MQTT RX", "topic", msg.Topic(), "payload", payload)
 
-		// Validate payload is 0 or 1
-		if payload != "0" && payload != "1" {
-			c.logger.Warn("Invalid relay payload, expected 0 or 1", "payload", payload)
+		// Validate payload based on entity type
+		if !c.validateEntityPayload(entityType, payload) {
+			c.logger.Warn("Invalid entity payload", "entityType", entityType, "payload", payload)
 			return
 		}
 
-		// Check if relay is configured for optimistic mode
-		optimistic := c.getEffectiveOptimisticMode(deviceID, relayID)
+		// Check if entity is configured for optimistic mode
+		optimistic := c.getEffectiveOptimisticModeForEntity(deviceID, entityID)
 
 		if optimistic {
 			// Optimistic mode: update MQTT state immediately (assume command will succeed)
-			deviceStateTopic := fmt.Sprintf("%s/devices/%s/relay/%s/state", c.adapterCfg.TopicPrefix, deviceID, relayID)
+			deviceStateTopic := fmt.Sprintf("%s/devices/%s/entity/%s/state", c.adapterCfg.TopicPrefix, deviceID, entityID)
 			c.Publish(deviceStateTopic, payload, true)
 
 			c.stateMu.Lock()
 			c.states[compositeKey] = payload
 			c.stateMu.Unlock()
 
-			c.logger.Debug("Optimistic mode: updated MQTT state immediately", "device", deviceName, "relay", relayName, "state", payload)
+			c.logger.Debug("Optimistic mode: updated MQTT state immediately", "device", deviceName, "entity", entityName, "state", payload)
 		} else {
 			// Non-optimistic mode: wait for MySensors device confirmation before updating MQTT state
-			c.logger.Debug("Non-optimistic mode: waiting for device confirmation", "device", deviceName, "relay", relayName, "command", payload)
+			c.logger.Debug("Non-optimistic mode: waiting for device confirmation", "device", deviceName, "entity", entityName, "command", payload)
 		}
 
 		// Always notify the handler to send MySensors command
 		if handler, exists := c.handlers[compositeKey]; exists {
-			handler(deviceName, relayName, payload)
-		}
-	}
-}
-
-func (c *Client) createOutputHandler(deviceName, outputName, compositeKey, deviceID, outputID, outputType string) mqtt.MessageHandler {
-	return func(client mqtt.Client, msg mqtt.Message) {
-		payload := string(msg.Payload())
-		c.logger.Debug("MQTT RX", "topic", msg.Topic(), "payload", payload)
-
-		// Validate payload based on output type
-		if !c.validateOutputPayload(outputType, payload) {
-			c.logger.Warn("Invalid output payload", "outputType", outputType, "payload", payload)
-			return
-		}
-
-		// Check if output is configured for optimistic mode
-		optimistic := c.getEffectiveOptimisticModeForOutput(deviceID, outputID)
-
-		if optimistic {
-			// Optimistic mode: update MQTT state immediately (assume command will succeed)
-			deviceStateTopic := fmt.Sprintf("%s/devices/%s/output/%s/state", c.adapterCfg.TopicPrefix, deviceID, outputID)
-			c.Publish(deviceStateTopic, payload, true)
-
-			c.stateMu.Lock()
-			c.states[compositeKey] = payload
-			c.stateMu.Unlock()
-
-			c.logger.Debug("Optimistic mode: updated MQTT state immediately", "device", deviceName, "output", outputName, "state", payload)
-		} else {
-			// Non-optimistic mode: wait for MySensors device confirmation before updating MQTT state
-			c.logger.Debug("Non-optimistic mode: waiting for device confirmation", "device", deviceName, "output", outputName, "command", payload)
-		}
-
-		// Always notify the handler to send MySensors command
-		if handler, exists := c.handlers[compositeKey]; exists {
-			handler(deviceName, outputName, payload)
+			handler(deviceName, entityName, payload)
 		}
 	}
 }
@@ -327,235 +214,93 @@ func (c *Client) RegisterStateChangeHandler(uniqueID string, handler StateChange
 	c.handlers[uniqueID] = handler
 }
 
-// validateOutputPayload validates the payload based on output type
-func (c *Client) validateOutputPayload(outputType, payload string) bool {
-	switch outputType {
+
+func (c *Client) createEntityStateHandler(uniqueID string, entityType string) mqtt.MessageHandler {
+	return func(client mqtt.Client, msg mqtt.Message) {
+		payload := string(msg.Payload())
+		c.logger.Debug("Received retained entity state message", "topic", msg.Topic(), "payload", payload, "entityType", entityType)
+
+		// Skip empty payloads (might be cleared retained messages)
+		if len(payload) == 0 {
+			c.logger.Debug("Skipping empty payload (cleared retained message)", "topic", msg.Topic())
+			return
+		}
+
+		// Validate payload based on entity type
+		if !c.validateEntityPayload(entityType, payload) {
+			c.logger.Warn("Invalid retained entity state payload", "entityType", entityType, "payload", payload, "topic", msg.Topic())
+			return
+		}
+
+		// Store the entity state
+		c.stateMu.Lock()
+		c.states[uniqueID] = payload
+		c.stateMu.Unlock()
+		
+		c.logger.Debug("Stored retained entity state", "uniqueID", uniqueID, "payload", payload)
+	}
+}
+
+// validateEntityPayload validates the payload based on entity type
+func (c *Client) validateEntityPayload(entityType, payload string) bool {
+	// Reuse output validation logic for actuator entity types
+	switch entityType {
 	case "switch", "light":
-		// Switch and light outputs expect 0/1 or ON/OFF
 		return payload == "0" || payload == "1" || payload == "ON" || payload == "OFF"
 	case "dimmer", "number":
-		// Dimmer and number outputs expect numeric values (0-100 for dimmer, any number for number)
 		if payload == "0" || payload == "1" {
 			return true
 		}
 		// Could add numeric validation here
 		return true
 	case "text", "select":
-		// Text and select outputs accept any string
 		return true
 	case "cover":
-		// Cover outputs expect UP/DOWN/STOP or OPEN/CLOSE/STOP
 		return payload == "UP" || payload == "DOWN" || payload == "STOP" || 
 			   payload == "OPEN" || payload == "CLOSE"
+	case "sensor", "binary_sensor", "temperature", "humidity", "battery", 
+		 "voltage", "current", "pressure", "level", "percentage", "weight", 
+		 "distance", "light_level", "watt", "kwh", "flow", "volume", "ph", 
+		 "orp", "ec", "var", "va", "power_factor", "custom", "position", 
+		 "uv", "rain", "rainrate", "wind", "gust", "direction", "impedance":
+		// Sensor entity types accept any payload (they're reporting values)
+		return true
 	default:
 		// For unknown types, accept any payload
 		return true
 	}
 }
 
-// getEffectiveOptimisticModeForOutput determines the effective optimistic mode for a specific output
-func (c *Client) getEffectiveOptimisticModeForOutput(deviceID, outputID string) bool {
-	// Find the device and output configuration
+// getEffectiveOptimisticModeForEntity determines the effective optimistic mode for a specific entity
+func (c *Client) getEffectiveOptimisticModeForEntity(deviceID, entityID string) bool {
+	// Find the device and entity configuration
 	for _, device := range c.devices {
 		if device.ID == deviceID {
-			for _, output := range device.Outputs {
-				if output.ID == outputID {
-					// Check per-output setting first (highest priority)
-					if output.Optimistic != nil {
-						return *output.Optimistic
+			for _, entity := range device.Entities {
+				if entity.ID == entityID {
+					// Priority: entity setting > device setting > global setting > default (false)
+					if entity.Optimistic != nil {
+						return *entity.Optimistic
 					}
-					// Fall back to global setting
-					if c.adapterCfg.Optimistic != nil {
-						return *c.adapterCfg.Optimistic
-					}
-					// Default to non-optimistic (false)
-					return false
+					break
 				}
 			}
+			// No entity-specific setting found, check device setting
+			break
 		}
 	}
-	// If device/output not found, default to non-optimistic
-	return false
+
+	// Fall back to global setting
+	if c.adapterCfg.Optimistic != nil {
+		return *c.adapterCfg.Optimistic
+	}
+
+	return false // Default to false (non-optimistic)
 }
 
-// getEffectiveOptimisticMode determines the effective optimistic mode for a specific relay
-func (c *Client) getEffectiveOptimisticMode(deviceID, relayID string) bool {
-	// Find the device and relay configuration
-	for _, device := range c.devices {
-		if device.ID == deviceID {
-			for _, relay := range device.Relays {
-				if relay.ID == relayID {
-					// Check per-relay setting first (highest priority)
-					if relay.Optimistic != nil {
-						return *relay.Optimistic
-					}
-					// Fall back to global setting
-					if c.adapterCfg.Optimistic != nil {
-						return *c.adapterCfg.Optimistic
-					}
-					// Default to non-optimistic (false)
-					return false
-				}
-			}
-		}
-	}
-	// If device/relay not found, default to non-optimistic
-	return false
-}
 
-// createOutputDiscoveryConfig creates Home Assistant discovery configuration for outputs
-func (c *Client) createOutputDiscoveryConfig(device config.Device, output config.Output, deviceInfo map[string]interface{}) (string, map[string]interface{}) {
-	var entityType string
-	discoveryConfig := map[string]interface{}{
-		"name":        output.Name,
-		"unique_id":   fmt.Sprintf("%s_%s_output", device.ID, output.ID),
-		"command_topic": fmt.Sprintf("%s/devices/%s/output/%s/set", c.adapterCfg.TopicPrefix, device.ID, output.ID),
-		"state_topic":   fmt.Sprintf("%s/devices/%s/output/%s/state", c.adapterCfg.TopicPrefix, device.ID, output.ID),
-		"device":        deviceInfo,
-	}
 
-	// Configure based on output type
-	switch output.OutputType {
-	case "text":
-		entityType = "text"
-		// Text entities don't need payload configuration
-		
-	case "number":
-		entityType = "number"
-		if output.MinValue != nil {
-			discoveryConfig["min"] = *output.MinValue
-		}
-		if output.MaxValue != nil {
-			discoveryConfig["max"] = *output.MaxValue
-		}
-		if output.Step != nil {
-			discoveryConfig["step"] = *output.Step
-		}
-		if output.UnitOfMeasurement != "" {
-			discoveryConfig["unit_of_measurement"] = output.UnitOfMeasurement
-		}
-		
-	case "select":
-		entityType = "select"
-		if len(output.Options) > 0 {
-			discoveryConfig["options"] = output.Options
-		}
-		
-	case "switch", "light":
-		if output.OutputType == "light" {
-			entityType = "light"
-		} else {
-			entityType = "switch"
-		}
-		// Set payload values with defaults
-		if output.PayloadOn != "" {
-			discoveryConfig["payload_on"] = output.PayloadOn
-		} else {
-			discoveryConfig["payload_on"] = "1"
-		}
-		if output.PayloadOff != "" {
-			discoveryConfig["payload_off"] = output.PayloadOff
-		} else {
-			discoveryConfig["payload_off"] = "0"
-		}
-		if output.StateOn != "" {
-			discoveryConfig["state_on"] = output.StateOn
-		}
-		if output.StateOff != "" {
-			discoveryConfig["state_off"] = output.StateOff
-		}
-		
-	case "cover":
-		entityType = "cover"
-		// Cover-specific payloads
-		if output.PayloadOpen != "" {
-			discoveryConfig["payload_open"] = output.PayloadOpen
-		} else {
-			discoveryConfig["payload_open"] = "OPEN"
-		}
-		if output.PayloadClose != "" {
-			discoveryConfig["payload_close"] = output.PayloadClose
-		} else {
-			discoveryConfig["payload_close"] = "CLOSE"
-		}
-		if output.PayloadStop != "" {
-			discoveryConfig["payload_stop"] = output.PayloadStop
-		} else {
-			discoveryConfig["payload_stop"] = "STOP"
-		}
-		
-	default:
-		// Default to switch for unknown types
-		entityType = "switch"
-		discoveryConfig["payload_on"] = "1"
-		discoveryConfig["payload_off"] = "0"
-	}
 
-	// Apply common configurations
-	if output.Icon != "" {
-		discoveryConfig["icon"] = output.Icon
-	}
-	if output.DeviceClass != "" {
-		discoveryConfig["device_class"] = output.DeviceClass
-	}
-	if output.EntityCategory != "" {
-		discoveryConfig["entity_category"] = output.EntityCategory
-	}
-	if output.EnabledByDefault != nil {
-		discoveryConfig["enabled_by_default"] = *output.EnabledByDefault
-	}
-	if output.QOS != nil {
-		discoveryConfig["qos"] = *output.QOS
-	} else {
-		discoveryConfig["qos"] = 0
-	}
-	if output.Retain != nil {
-		discoveryConfig["retain"] = *output.Retain
-	} else {
-		discoveryConfig["retain"] = true
-	}
-	if output.Optimistic != nil {
-		discoveryConfig["optimistic"] = *output.Optimistic
-	} else if c.adapterCfg.Optimistic != nil {
-		discoveryConfig["optimistic"] = *c.adapterCfg.Optimistic
-	} else {
-		discoveryConfig["optimistic"] = false
-	}
-
-	// Availability configuration
-	if output.AvailabilityTopic != "" {
-		discoveryConfig["availability_topic"] = output.AvailabilityTopic
-		if output.PayloadAvailable != "" {
-			discoveryConfig["payload_available"] = output.PayloadAvailable
-		} else {
-			discoveryConfig["payload_available"] = "online"
-		}
-		if output.PayloadNotAvailable != "" {
-			discoveryConfig["payload_not_available"] = output.PayloadNotAvailable
-		} else {
-			discoveryConfig["payload_not_available"] = "offline"
-		}
-	}
-
-	// Template configuration
-	if output.JSONAttributesTopic != "" {
-		discoveryConfig["json_attributes_topic"] = output.JSONAttributesTopic
-	}
-	if output.JSONAttributesTemplate != "" {
-		discoveryConfig["json_attributes_template"] = output.JSONAttributesTemplate
-	}
-	if output.StateValueTemplate != "" {
-		discoveryConfig["state_value_template"] = output.StateValueTemplate
-	}
-	if output.CommandTemplate != "" {
-		discoveryConfig["command_template"] = output.CommandTemplate
-	}
-	if output.ValueTemplate != "" {
-		discoveryConfig["value_template"] = output.ValueTemplate
-	}
-
-	return entityType, discoveryConfig
-}
 
 
 func (c *Client) Publish(topic, payload string, retain bool) error {
@@ -584,57 +329,9 @@ func (c *Client) SetState(uniqueID, state string) {
 	c.stateMu.Unlock()
 }
 
-func (c *Client) PublishDeviceState(device config.Device, relay config.Relay, state string) error {
-	// Publish to device-specific state topic
-	deviceStateTopic := fmt.Sprintf("%s/devices/%s/relay/%s/state", c.adapterCfg.TopicPrefix, device.ID, relay.ID)
-	
-	// Update internal state tracking
-	compositeKey := fmt.Sprintf("%s_%s", device.ID, relay.ID)
-	c.stateMu.Lock()
-	c.states[compositeKey] = state
-	c.stateMu.Unlock()
-	
-	return c.Publish(deviceStateTopic, state, true)
-}
 
-func (c *Client) PublishOutputState(device config.Device, output config.Output, value string) error {
-	// Publish to device-specific state topic
-	deviceStateTopic := fmt.Sprintf("%s/devices/%s/output/%s/state", c.adapterCfg.TopicPrefix, device.ID, output.ID)
-	
-	// Update internal state tracking
-	compositeKey := fmt.Sprintf("%s_%s_output", device.ID, output.ID)
-	c.stateMu.Lock()
-	c.states[compositeKey] = value
-	c.stateMu.Unlock()
-	
-	return c.Publish(deviceStateTopic, value, true)
-}
 
-func (c *Client) PublishInputState(device config.Device, input config.Input, state string) error {
-	// Publish to device-specific state topic using 0/1 values with retain flag
-	deviceStateTopic := fmt.Sprintf("%s/devices/%s/input/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID)
-	
-	// Update internal state tracking
-	compositeKey := fmt.Sprintf("%s_%s", device.ID, input.ID)
-	c.stateMu.Lock()
-	c.states[compositeKey] = state
-	c.stateMu.Unlock()
-	
-	return c.Publish(deviceStateTopic, state, true)
-}
 
-func (c *Client) PublishSensorState(device config.Device, input config.Input, value string) error {
-	// Publish to device-specific sensor state topic using sensor value with retain flag
-	sensorStateTopic := fmt.Sprintf("%s/devices/%s/sensor/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID)
-	
-	// Update internal state tracking
-	compositeKey := fmt.Sprintf("%s_%s_sensor", device.ID, input.ID)
-	c.stateMu.Lock()
-	c.states[compositeKey] = value
-	c.stateMu.Unlock()
-	
-	return c.Publish(sensorStateTopic, value, true)
-}
 
 func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 	// Only publish HomeAssistant discovery if enabled
@@ -665,292 +362,296 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 		deviceInfo["via_device"] = device.ViaDevice
 	}
 
-	for _, relay := range device.Relays {
-
-		config := map[string]interface{}{
-			"name":          relay.Name,
-			"unique_id":     fmt.Sprintf("%s_%s", device.ID, relay.ID),
-			"command_topic": fmt.Sprintf("%s/devices/%s/relay/%s/set", c.adapterCfg.TopicPrefix, device.ID, relay.ID),
-			"state_topic":   fmt.Sprintf("%s/devices/%s/relay/%s/state", c.adapterCfg.TopicPrefix, device.ID, relay.ID),
-			"device":        deviceInfo,
-		}
-
-		// Set payload and state values with defaults
-		if relay.PayloadOn != "" {
-			config["payload_on"] = relay.PayloadOn
-		} else {
-			config["payload_on"] = "1"
-		}
-		if relay.PayloadOff != "" {
-			config["payload_off"] = relay.PayloadOff
-		} else {
-			config["payload_off"] = "0"
-		}
-		if relay.StateOn != "" {
-			config["state_on"] = relay.StateOn
-		} else {
-			config["state_on"] = "1"
-		}
-		if relay.StateOff != "" {
-			config["state_off"] = relay.StateOff
-		} else {
-			config["state_off"] = "0"
-		}
-
-		// Apply relay-specific configurations with defaults
-		if relay.Optimistic != nil {
-			config["optimistic"] = *relay.Optimistic
-		} else if c.adapterCfg.Optimistic != nil {
-			config["optimistic"] = *c.adapterCfg.Optimistic
-		} else {
-			config["optimistic"] = false
-		}
-		
-		if relay.QOS != nil {
-			config["qos"] = *relay.QOS
-		} else {
-			config["qos"] = 0
-		}
-		
-		if relay.Retain != nil {
-			config["retain"] = *relay.Retain
-		} else {
-			config["retain"] = true
-		}
-
-		if relay.Icon != "" {
-			config["icon"] = relay.Icon
-		}
-		if relay.DeviceClass != "" {
-			config["device_class"] = relay.DeviceClass
-		}
-		if relay.EntityCategory != "" {
-			config["entity_category"] = relay.EntityCategory
-		}
-		if relay.EnabledByDefault != nil {
-			config["enabled_by_default"] = *relay.EnabledByDefault
-		}
-		if relay.AvailabilityTopic != "" {
-			config["availability_topic"] = relay.AvailabilityTopic
-			if relay.PayloadAvailable != "" {
-				config["payload_available"] = relay.PayloadAvailable
-			} else {
-				config["payload_available"] = "online"
-			}
-			if relay.PayloadNotAvailable != "" {
-				config["payload_not_available"] = relay.PayloadNotAvailable
-			} else {
-				config["payload_not_available"] = "offline"
-			}
-		}
-		if relay.JSONAttributesTopic != "" {
-			config["json_attributes_topic"] = relay.JSONAttributesTopic
-		}
-		if relay.JSONAttributesTemplate != "" {
-			config["json_attributes_template"] = relay.JSONAttributesTemplate
-		}
-		if relay.StateValueTemplate != "" {
-			config["state_value_template"] = relay.StateValueTemplate
-		}
-		if relay.CommandTemplate != "" {
-			config["command_template"] = relay.CommandTemplate
-		}
-
-		configJSON, err := json.Marshal(config)
-		if err != nil {
-			return fmt.Errorf("failed to marshal relay config: %w", err)
-		}
-
-		discoveryTopic := fmt.Sprintf("homeassistant/switch/%s_%s/config", device.ID, relay.ID)
-		if err := c.Publish(discoveryTopic, string(configJSON), true); err != nil {
-			return fmt.Errorf("failed to publish relay discovery: %w", err)
-		}
-
-		// Honor retained MQTT messages, only use config initial_state if no retained state exists
-		compositeKey := fmt.Sprintf("%s_%s", device.ID, relay.ID)
-		
-		if existingState, exists := c.GetState(compositeKey); !exists {
-			// No retained state found, use configured initial state
-			initialState := "0"
-			if relay.InitialState == 1 {
-				initialState = "1"
-			}
-			c.logger.Debug("No retained state found, applying configured initial state", "device", device.ID, "relay", relay.ID, "initialState", initialState)
-			c.SetState(compositeKey, initialState)
-			if err := c.PublishDeviceState(device, relay, initialState); err != nil {
-				return fmt.Errorf("failed to publish initial relay state: %w", err)
-			}
-			c.logger.Debug("Published configured initial relay state", "relay", relay.ID, "state", initialState)
-		} else {
-			// Retained state exists, honor it
-			c.logger.Debug("Using existing retained state", "relay", relay.ID, "state", existingState)
-		}
-	}
-
-	// Publish discovery for outputs (text, number, select, etc.)
-	for _, output := range device.Outputs {
-		entityType, discoveryConfig := c.createOutputDiscoveryConfig(device, output, deviceInfo)
+	// Publish discovery for entities
+	for _, entity := range device.Entities {
+		entityType, discoveryConfig := c.createEntityDiscoveryConfig(device, entity, deviceInfo)
 		
 		configJSON, err := json.Marshal(discoveryConfig)
 		if err != nil {
-			return fmt.Errorf("failed to marshal output config: %w", err)
+			return fmt.Errorf("failed to marshal entity config: %w", err)
 		}
 
-		discoveryTopic := fmt.Sprintf("homeassistant/%s/%s_%s/config", entityType, device.ID, output.ID)
+		discoveryTopic := fmt.Sprintf("homeassistant/%s/%s_%s/config", entityType, device.ID, entity.ID)
 		if err := c.Publish(discoveryTopic, string(configJSON), true); err != nil {
-			return fmt.Errorf("failed to publish output discovery: %w", err)
+			return fmt.Errorf("failed to publish entity discovery: %w", err)
 		}
 
-		// Publish initial state for outputs if no state already exists
-		compositeKey := fmt.Sprintf("%s_%s_output", device.ID, output.ID)
-		if existingState, exists := c.GetState(compositeKey); !exists {
-			initialValue := output.InitialValue
-			if initialValue == "" {
-				initialValue = "0" // Default for switch/light outputs
-			}
-			c.SetState(compositeKey, initialValue)
-			if err := c.PublishOutputState(device, output, initialValue); err != nil {
-				return fmt.Errorf("failed to publish initial output state: %w", err)
-			}
-			c.logger.Debug("Published configured initial output state", "output", output.ID, "state", initialValue)
-		} else {
-			c.logger.Debug("Using existing retained output state", "output", output.ID, "state", existingState)
-		}
-	}
-
-	for _, input := range device.Inputs {
-		var entityType string
-		var discoveryConfig map[string]interface{}
-
-		if config.IsBinarySensor(input.SensorType) {
-			// Binary sensor configuration
-			entityType = "binary_sensor"
-			discoveryConfig = map[string]interface{}{
-				"name":        input.Name,
-				"unique_id":   fmt.Sprintf("%s_%s", device.ID, input.ID),
-				"state_topic": fmt.Sprintf("%s/devices/%s/input/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID),
-				"device":      deviceInfo,
-			}
-
-			// Set payload and state values with defaults
-			if input.PayloadOn != "" {
-				discoveryConfig["payload_on"] = input.PayloadOn
-			} else {
-				discoveryConfig["payload_on"] = "1"
-			}
-			if input.PayloadOff != "" {
-				discoveryConfig["payload_off"] = input.PayloadOff
-			} else {
-				discoveryConfig["payload_off"] = "0"
-			}
-			if input.StateOn != "" {
-				discoveryConfig["state_on"] = input.StateOn
-			}
-			if input.StateOff != "" {
-				discoveryConfig["state_off"] = input.StateOff
-			}
-		} else {
-			// Numeric sensor configuration
-			entityType = "sensor"
-			discoveryConfig = map[string]interface{}{
-				"name":        input.Name,
-				"unique_id":   fmt.Sprintf("%s_%s_sensor", device.ID, input.ID),
-				"state_topic": fmt.Sprintf("%s/devices/%s/sensor/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID),
-				"device":      deviceInfo,
-			}
-
-			// Add sensor-specific fields
-			if input.UnitOfMeasurement != "" {
-				discoveryConfig["unit_of_measurement"] = input.UnitOfMeasurement
-			}
-			// Only add state_class for sensors that should have it (not text/custom sensors)
-			if input.StateClass != "" && input.SensorType != "text" && input.SensorType != "custom" {
-				discoveryConfig["state_class"] = input.StateClass
-			}
-			if input.ValueTemplate != "" {
-				discoveryConfig["value_template"] = input.ValueTemplate
-			}
-		}
-
-		// Apply input-specific configurations
-		if input.QOS != nil {
-			discoveryConfig["qos"] = *input.QOS
-		} else {
-			discoveryConfig["qos"] = 0
-		}
-
-		if input.Icon != "" {
-			discoveryConfig["icon"] = input.Icon
-		}
-		if input.DeviceClass != "" {
-			discoveryConfig["device_class"] = input.DeviceClass
-		}
-		if input.EntityCategory != "" {
-			discoveryConfig["entity_category"] = input.EntityCategory
-		}
-		if input.EnabledByDefault != nil {
-			discoveryConfig["enabled_by_default"] = *input.EnabledByDefault
-		}
-		if input.AvailabilityTopic != "" {
-			discoveryConfig["availability_topic"] = input.AvailabilityTopic
-			if input.PayloadAvailable != "" {
-				discoveryConfig["payload_available"] = input.PayloadAvailable
-			} else {
-				discoveryConfig["payload_available"] = "online"
-			}
-			if input.PayloadNotAvailable != "" {
-				discoveryConfig["payload_not_available"] = input.PayloadNotAvailable
-			} else {
-				discoveryConfig["payload_not_available"] = "offline"
-			}
-		}
-		
-		// Only add binary sensor specific fields for binary sensors
-		if config.IsBinarySensor(input.SensorType) {
-			if input.OffDelay != nil {
-				discoveryConfig["off_delay"] = *input.OffDelay
-			}
-			if input.ExpireAfter != nil {
-				discoveryConfig["expire_after"] = *input.ExpireAfter
-			}
-		}
-		
-		if input.JSONAttributesTopic != "" {
-			discoveryConfig["json_attributes_topic"] = input.JSONAttributesTopic
-		}
-		if input.JSONAttributesTemplate != "" {
-			discoveryConfig["json_attributes_template"] = input.JSONAttributesTemplate
-		}
-		// Note: ValueTemplate is already handled above for sensors
-
-		configJSON, err := json.Marshal(discoveryConfig)
-		if err != nil {
-			return fmt.Errorf("failed to marshal input config: %w", err)
-		}
-
-		discoveryTopic := fmt.Sprintf("homeassistant/%s/%s_%s/config", entityType, device.ID, input.ID)
-		if err := c.Publish(discoveryTopic, string(configJSON), true); err != nil {
-			return fmt.Errorf("failed to publish input discovery: %w", err)
-		}
-
-		// Publish initial state for binary sensors only
-		if config.IsBinarySensor(input.SensorType) {
-			compositeKey := fmt.Sprintf("%s_%s", device.ID, input.ID)
+		// Publish initial state for entities that can report state if no state already exists
+		if entity.CanReportState() {
+			compositeKey := fmt.Sprintf("%s_%s_entity", device.ID, entity.ID)
 			if existingState, exists := c.GetState(compositeKey); !exists {
-				initialState := "0" // Default input state is "off"
-				c.SetState(compositeKey, initialState)
-				if err := c.PublishInputState(device, input, initialState); err != nil {
-					return fmt.Errorf("failed to publish initial input state: %w", err)
+				initialValue := entity.InitialValue
+				if initialValue == "" {
+					// Set default initial values based on entity type
+					switch entity.EntityType {
+					case "switch", "light", "binary_sensor":
+						initialValue = "0"
+					case "dimmer", "number", "percentage", "level":
+						initialValue = "0"
+					case "text", "select", "sensor":
+						initialValue = ""
+					default:
+						initialValue = "0"
+					}
 				}
-				c.logger.Info("Published initial input state", "input", input.ID, "state", initialState)
+				
+				// Only publish initial state for read-only sensors that are binary sensors
+				// For other sensors, we wait for data from MySensors device
+				if entity.IsReadOnly() && entity.EntityType != "binary_sensor" {
+					c.logger.Debug("Skipping initial state for read-only sensor (waiting for MySensors data)", "entity", entity.ID, "type", entity.EntityType)
+				} else {
+					c.SetState(compositeKey, initialValue)
+					if err := c.PublishEntityState(device, entity, initialValue); err != nil {
+						return fmt.Errorf("failed to publish initial entity state: %w", err)
+					}
+					c.logger.Debug("Published initial entity state", "entity", entity.ID, "state", initialValue)
+				}
 			} else {
-				c.logger.Info("Using existing input state", "input", input.ID, "state", existingState)
+				c.logger.Debug("Using existing retained entity state", "entity", entity.ID, "state", existingState)
 			}
 		}
-		// For numeric sensors, we don't publish initial states as they should come from the MySensors device
 	}
 
 	return nil
+}
+
+// PublishEntityState publishes the state of an entity
+func (c *Client) PublishEntityState(device config.Device, entity config.Entity, value string) error {
+	// Publish to device-specific state topic
+	deviceStateTopic := fmt.Sprintf("%s/devices/%s/entity/%s/state", c.adapterCfg.TopicPrefix, device.ID, entity.ID)
+	
+	// Update internal state tracking
+	compositeKey := fmt.Sprintf("%s_%s_entity", device.ID, entity.ID)
+	c.stateMu.Lock()
+	c.states[compositeKey] = value
+	c.stateMu.Unlock()
+	
+	return c.Publish(deviceStateTopic, value, true)
+}
+
+// createEntityDiscoveryConfig creates Home Assistant discovery configuration for entities
+func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config.Entity, deviceInfo map[string]interface{}) (string, map[string]interface{}) {
+	var haEntityType string
+	discoveryConfig := map[string]interface{}{
+		"name":        entity.Name,
+		"unique_id":   fmt.Sprintf("%s_%s_entity", device.ID, entity.ID),
+		"state_topic": fmt.Sprintf("%s/devices/%s/entity/%s/state", c.adapterCfg.TopicPrefix, device.ID, entity.ID),
+		"device":      deviceInfo,
+	}
+
+	// Add command topic only for entities that can receive commands
+	if entity.CanReceiveCommands() {
+		discoveryConfig["command_topic"] = fmt.Sprintf("%s/devices/%s/entity/%s/set", c.adapterCfg.TopicPrefix, device.ID, entity.ID)
+	}
+
+	// Map entity type to Home Assistant entity type and configure appropriately
+	switch entity.EntityType {
+	case "switch":
+		haEntityType = "switch"
+		// Set payload values with defaults
+		if entity.PayloadOn != "" {
+			discoveryConfig["payload_on"] = entity.PayloadOn
+		} else {
+			discoveryConfig["payload_on"] = "1"
+		}
+		if entity.PayloadOff != "" {
+			discoveryConfig["payload_off"] = entity.PayloadOff
+		} else {
+			discoveryConfig["payload_off"] = "0"
+		}
+		if entity.StateOn != "" {
+			discoveryConfig["state_on"] = entity.StateOn
+		}
+		if entity.StateOff != "" {
+			discoveryConfig["state_off"] = entity.StateOff
+		}
+
+	case "light":
+		haEntityType = "light"
+		// Set payload values with defaults
+		if entity.PayloadOn != "" {
+			discoveryConfig["payload_on"] = entity.PayloadOn
+		} else {
+			discoveryConfig["payload_on"] = "1"
+		}
+		if entity.PayloadOff != "" {
+			discoveryConfig["payload_off"] = entity.PayloadOff
+		} else {
+			discoveryConfig["payload_off"] = "0"
+		}
+		if entity.StateOn != "" {
+			discoveryConfig["state_on"] = entity.StateOn
+		}
+		if entity.StateOff != "" {
+			discoveryConfig["state_off"] = entity.StateOff
+		}
+
+	case "dimmer":
+		haEntityType = "light"
+		if entity.MinValue != nil {
+			discoveryConfig["min_mireds"] = *entity.MinValue
+		}
+		if entity.MaxValue != nil {
+			discoveryConfig["max_mireds"] = *entity.MaxValue
+		}
+
+	case "text":
+		haEntityType = "text"
+		// Text entities don't need payload configuration
+
+	case "number":
+		haEntityType = "number"
+		if entity.MinValue != nil {
+			discoveryConfig["min"] = *entity.MinValue
+		}
+		if entity.MaxValue != nil {
+			discoveryConfig["max"] = *entity.MaxValue
+		}
+		if entity.Step != nil {
+			discoveryConfig["step"] = *entity.Step
+		}
+		if entity.UnitOfMeasurement != "" {
+			discoveryConfig["unit_of_measurement"] = entity.UnitOfMeasurement
+		}
+
+	case "select":
+		haEntityType = "select"
+		if len(entity.Options) > 0 {
+			discoveryConfig["options"] = entity.Options
+		}
+
+	case "cover":
+		haEntityType = "cover"
+		// Cover-specific payloads
+		if entity.PayloadOpen != "" {
+			discoveryConfig["payload_open"] = entity.PayloadOpen
+		} else {
+			discoveryConfig["payload_open"] = "OPEN"
+		}
+		if entity.PayloadClose != "" {
+			discoveryConfig["payload_close"] = entity.PayloadClose
+		} else {
+			discoveryConfig["payload_close"] = "CLOSE"
+		}
+		if entity.PayloadStop != "" {
+			discoveryConfig["payload_stop"] = entity.PayloadStop
+		} else {
+			discoveryConfig["payload_stop"] = "STOP"
+		}
+		if entity.StateOpen != "" {
+			discoveryConfig["state_open"] = entity.StateOpen
+		}
+		if entity.StateClosed != "" {
+			discoveryConfig["state_closed"] = entity.StateClosed
+		}
+
+	case "binary_sensor":
+		haEntityType = "binary_sensor"
+		// Set payload values with defaults
+		if entity.PayloadOn != "" {
+			discoveryConfig["payload_on"] = entity.PayloadOn
+		} else {
+			discoveryConfig["payload_on"] = "1"
+		}
+		if entity.PayloadOff != "" {
+			discoveryConfig["payload_off"] = entity.PayloadOff
+		} else {
+			discoveryConfig["payload_off"] = "0"
+		}
+		if entity.StateOn != "" {
+			discoveryConfig["state_on"] = entity.StateOn
+		}
+		if entity.StateOff != "" {
+			discoveryConfig["state_off"] = entity.StateOff
+		}
+		if entity.OffDelay != nil {
+			discoveryConfig["off_delay"] = *entity.OffDelay
+		}
+		if entity.ExpireAfter != nil {
+			discoveryConfig["expire_after"] = *entity.ExpireAfter
+		}
+
+	case "sensor", "temperature", "humidity", "battery", "voltage", "current", "pressure", "level", "percentage", "weight", "distance", "light_level", "watt", "kwh", "flow", "volume", "ph", "orp", "ec", "var", "va", "power_factor", "custom", "position", "uv", "rain", "rainrate", "wind", "gust", "direction", "impedance":
+		haEntityType = "sensor"
+		if entity.UnitOfMeasurement != "" {
+			discoveryConfig["unit_of_measurement"] = entity.UnitOfMeasurement
+		}
+		if entity.StateClass != "" {
+			discoveryConfig["state_class"] = entity.StateClass
+		}
+		if entity.ValueTemplate != "" {
+			discoveryConfig["value_template"] = entity.ValueTemplate
+		}
+
+	default:
+		// Default to sensor for unknown types
+		haEntityType = "sensor"
+	}
+
+	// Apply common configurations
+	if entity.Icon != "" {
+		discoveryConfig["icon"] = entity.Icon
+	}
+	if entity.DeviceClass != "" {
+		discoveryConfig["device_class"] = entity.DeviceClass
+	}
+	if entity.EntityCategory != "" {
+		discoveryConfig["entity_category"] = entity.EntityCategory
+	}
+	if entity.EnabledByDefault != nil {
+		discoveryConfig["enabled_by_default"] = *entity.EnabledByDefault
+	}
+	if entity.QOS != nil {
+		discoveryConfig["qos"] = *entity.QOS
+	} else {
+		discoveryConfig["qos"] = 0
+	}
+	if entity.Retain != nil {
+		discoveryConfig["retain"] = *entity.Retain
+	} else {
+		discoveryConfig["retain"] = true
+	}
+	if entity.Optimistic != nil {
+		discoveryConfig["optimistic"] = *entity.Optimistic
+	} else if c.adapterCfg.Optimistic != nil {
+		discoveryConfig["optimistic"] = *c.adapterCfg.Optimistic
+	} else {
+		discoveryConfig["optimistic"] = false
+	}
+
+	// Availability configuration
+	if entity.AvailabilityTopic != "" {
+		discoveryConfig["availability_topic"] = entity.AvailabilityTopic
+		if entity.PayloadAvailable != "" {
+			discoveryConfig["payload_available"] = entity.PayloadAvailable
+		} else {
+			discoveryConfig["payload_available"] = "online"
+		}
+		if entity.PayloadNotAvailable != "" {
+			discoveryConfig["payload_not_available"] = entity.PayloadNotAvailable
+		} else {
+			discoveryConfig["payload_not_available"] = "offline"
+		}
+	}
+
+	// Template configuration
+	if entity.JSONAttributesTopic != "" {
+		discoveryConfig["json_attributes_topic"] = entity.JSONAttributesTopic
+	}
+	if entity.JSONAttributesTemplate != "" {
+		discoveryConfig["json_attributes_template"] = entity.JSONAttributesTemplate
+	}
+	if entity.StateValueTemplate != "" {
+		discoveryConfig["state_value_template"] = entity.StateValueTemplate
+	}
+	if entity.CommandTemplate != "" {
+		discoveryConfig["command_template"] = entity.CommandTemplate
+	}
+	if entity.ValueTemplate != "" {
+		discoveryConfig["value_template"] = entity.ValueTemplate
+	}
+
+	return haEntityType, discoveryConfig
 }
 
 func (c *Client) PublishAdapterStatus(topicPrefix string, nodeIDs []int) error {

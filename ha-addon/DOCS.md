@@ -30,16 +30,25 @@ devices:
     model: "Relay 3"
     sw_version: "1.0"
     hw_version: "1.0"
-    relays:
+    entities:
       - name: "Relay 1"
         id: "relay_1"
         child_id: 0
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:electric-switch"
       - name: "Relay 2"
         id: "relay_2"
         child_id: 1
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:electric-switch"
       - name: "Relay 3"
         id: "relay_3"
         child_id: 2
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:electric-switch"
 
   - name: "Input 6 #1"
     id: "input_6_1"
@@ -48,25 +57,49 @@ devices:
     model: "Input 6"
     sw_version: "1.0"
     hw_version: "1.0"
-    inputs:
+    entities:
       - name: "Input Button 1"
         id: "input_button_1"
         child_id: 0
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 2"
         id: "input_button_2"
         child_id: 1
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 3"
         id: "input_button_3"
         child_id: 2
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 4"
         id: "input_button_4"
         child_id: 3
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 5"
         id: "input_button_5"
         child_id: 4
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 6"
         id: "input_button_6"
         child_id: 5
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
 
   # Example device with sensors (numeric measurements)
   - name: "Environment Sensor"
@@ -76,19 +109,26 @@ devices:
     model: "Environment Pro" 
     sw_version: "1.0"
     hw_version: "1.0"
-    inputs:
+    entities:
       - name: "Temperature"
         id: "temperature"
         child_id: 0
-        sensor_type: "temperature"  # Numeric temperature sensor
+        entity_type: "temperature"
+        read_only: true
+        icon: "mdi:thermometer"
       - name: "Humidity"
         id: "humidity"
         child_id: 1
-        sensor_type: "humidity"     # Numeric humidity sensor
+        entity_type: "humidity"
+        read_only: true
+        icon: "mdi:water-percent"
       - name: "Battery Level"
         id: "battery"
         child_id: 2
-        sensor_type: "battery"      # Numeric battery sensor
+        entity_type: "battery"
+        read_only: true
+        entity_category: "diagnostic"
+        icon: "mdi:battery"
 ```
 
 ### What's using defaults in this config:
@@ -156,10 +196,11 @@ devices:
     id: "fast_device"
     node_id: 1
     request_ack: false   # Override: no ACK for this device
-    relays:
+    entities:
       - name: "Quick Light"
         id: "quick_light"
         child_id: 0
+        entity_type: "switch"
         optimistic: true  # Override: immediate response
 ```
 
@@ -173,154 +214,106 @@ adapter:
     period: "30s"  # Sync every 30 seconds
 ```
 
-### Outputs
+### Entity Configuration
 
-The adapter supports outputs for controlling MySensors devices with different value types. Outputs can be text, numeric, switches, or selectable options:
+The adapter uses a unified **entities** configuration. An entity can be a sensor (read-only), actuator (controllable), or both, making configuration simpler and more flexible:
 
 ```yaml
 devices:
-  - name: "Smart Display #1"
-    id: "smart_display_1"
-    node_id: 6
-    manufacturer: "Nippy"
-    model: "Smart Display"
+  - name: "Smart Device"
+    id: "smart_device"
+    node_id: 5
+    manufacturer: "Example"
+    model: "Multi-Function"
     sw_version: "1.0"
     hw_version: "1.0"
-    outputs:
-      # Text output - allows setting arbitrary text messages
-      - name: "Display Message"
-        id: "display_message"
+    entities:
+      # Switch actuator (equivalent to old "relay")
+      - name: "Power Switch"
+        id: "power_switch"
         child_id: 0
-        output_type: "text"           # Maps to MySensors V_TEXT
-        initial_value: "Hello World"
-        icon: "mdi:message-text"
-        entity_category: "config"
+        entity_type: "switch"           # Maps to MySensors V_STATUS
+        initial_value: "0"
+        icon: "mdi:power"
       
-      # Number output - allows setting numeric values with range
-      - name: "Brightness Level"
-        id: "brightness_level"
+      # Text actuator (send text messages to device)
+      - name: "Display Message"
+        id: "display_msg"
         child_id: 1
-        output_type: "number"         # Maps to MySensors V_PERCENTAGE
+        entity_type: "text"             # Maps to MySensors V_TEXT
+        initial_value: "Hello"
+        icon: "mdi:message-text"
+      
+      # Number actuator (set numeric values)
+      - name: "Brightness"
+        id: "brightness"
+        child_id: 2
+        entity_type: "number"           # Maps to MySensors V_PERCENTAGE
         initial_value: "50"
         min_value: 0
         max_value: 100
         step: 5
         unit_of_measurement: "%"
         icon: "mdi:brightness-6"
-        
-      # Select output - allows choosing from predefined options
-      - name: "Display Mode"
-        id: "display_mode"
-        child_id: 2
-        output_type: "select"         # Maps to MySensors V_TEXT
-        initial_value: "normal"
-        options: ["normal", "bright", "dim", "off"]
-        icon: "mdi:monitor"
-        
-      # Switch output - equivalent to relay but using outputs
-      - name: "Backlight Power"
-        id: "backlight_power"
+      
+      # Temperature sensor (read-only)
+      - name: "Temperature"
+        id: "temperature"
         child_id: 3
-        output_type: "switch"         # Maps to MySensors V_STATUS
-        initial_value: "1"
-        icon: "mdi:lightbulb"
+        entity_type: "temperature"      # Maps to MySensors V_TEMP
+        read_only: true
+        icon: "mdi:thermometer"
+      
+      # Binary sensor (read-only)
+      - name: "Motion"
+        id: "motion"
+        child_id: 4
+        entity_type: "binary_sensor"    # Maps to MySensors V_STATUS
+        read_only: true
+        device_class: "motion"
+        icon: "mdi:motion-sensor"
 ```
 
-**Available output types**:
+**Entity Capabilities:**
+- `read_only: true` - Entity can only report values (sensor)
+- `read_only: false` - Entity can receive commands (actuator) - default for most types
+- `write_only: true` - Entity can only receive commands, never reports state
+
+**Available entity types:**
+
+**Actuator Types** (can receive commands):
 - **switch**: Binary on/off control (maps to V_STATUS)
-- **light**: Light control (maps to V_STATUS)
-- **dimmer**: Dimmer control with percentage (maps to V_PERCENTAGE)
+- **light**: Light control (maps to V_STATUS)  
+- **dimmer**: Dimmer with percentage (maps to V_PERCENTAGE)
 - **cover**: Cover/blind control (maps to V_UP/V_DOWN/V_STOP)
 - **text**: Text message control (maps to V_TEXT)
 - **number**: Numeric value control (maps to V_PERCENTAGE)
 - **select**: Selection from predefined options (maps to V_TEXT)
 - **climate**: Climate control (maps to V_HVAC_SETPOINT_HEAT)
 
-**Variable type override**: You can override the default MySensors variable type:
+**Sensor Types** (typically read-only):
+- **sensor**: Generic sensor (maps to V_CUSTOM)
+- **binary_sensor**: Binary sensor (maps to V_STATUS)
+- **temperature**: Temperature sensor (maps to V_TEMP)
+- **humidity**: Humidity sensor (maps to V_HUM)
+- **battery**: Battery level (maps to V_PERCENTAGE)
+- **voltage**: Voltage sensor (maps to V_VOLTAGE)
+- **current**: Current sensor (maps to V_CURRENT)
+- **pressure**: Pressure sensor (maps to V_PRESSURE)
+- **level**: Level sensor (maps to V_LEVEL)
+- And many more sensor types...
+
+**Variable type override:**
 ```yaml
-- name: "Custom Output"
-  output_type: "text"
+- name: "Custom Entity"
+  entity_type: "text"
   variable_type: "V_CUSTOM"  # Override default V_TEXT
 ```
 
-### Sensor Types
+**MQTT Topics:**
+- Command topic: `ms-mqtt-adapter/devices/{device_id}/entity/{entity_id}/set`
+- State topic: `ms-mqtt-adapter/devices/{device_id}/entity/{entity_id}/state`
 
-The adapter supports both binary and numeric sensors:
-
-#### Binary Sensors (Default)
-For buttons, switches, motion detectors, etc. that report 0/1 values:
-
-```yaml
-inputs:
-  - name: "Motion Sensor"
-    id: "motion"
-    child_id: 0
-    sensor_type: "binary"  # Optional - this is the default
-    device_class: "motion"
-```
-
-#### Numeric Sensors
-For temperature, humidity, battery levels, etc. that report numeric values:
-
-```yaml
-inputs:
-  - name: "Temperature"
-    id: "temperature"
-    child_id: 0
-    sensor_type: "temperature"    # Maps to MySensors V_TEMP
-    # Defaults: unit="°C", state_class="measurement"
-    
-  - name: "Humidity"
-    id: "humidity" 
-    child_id: 1
-    sensor_type: "humidity"       # Maps to MySensors V_HUM
-    # Defaults: unit="%", state_class="measurement"
-    
-  - name: "Battery"
-    id: "battery"
-    child_id: 2
-    sensor_type: "battery"        # Maps to MySensors V_PERCENTAGE
-    # Defaults: unit="%", state_class="measurement", entity_category="diagnostic"
-    
-  - name: "Voltage"
-    id: "voltage"
-    child_id: 3
-    sensor_type: "voltage"        # Maps to MySensors V_VOLTAGE
-    # Defaults: unit="V", state_class="measurement"
-    
-  - name: "Current"
-    id: "current"
-    child_id: 4
-    sensor_type: "current"        # Maps to MySensors V_CURRENT
-    # Defaults: unit="A", state_class="measurement"
-    
-  - name: "Pressure"
-    id: "pressure"
-    child_id: 5
-    sensor_type: "pressure"       # Maps to MySensors V_PRESSURE
-    # Defaults: unit="hPa", state_class="measurement"
-    
-  - name: "Level"
-    id: "level"
-    child_id: 6
-    sensor_type: "level"          # Maps to MySensors V_LEVEL
-    # Defaults: unit="%", state_class="measurement"
-```
-
-**Available sensor types**: 
-- **Basic**: `binary`, `temperature`, `humidity`, `battery`, `voltage`, `current`, `pressure`, `level`, `percentage`
-- **Power/Energy**: `watt`, `kwh`, `var`, `va`, `power_factor`  
-- **Environmental**: `light_level`, `uv`, `ph`, `orp`, `ec`
-- **Weather**: `wind`, `gust`, `direction`, `rain`, `rainrate`
-- **Physical**: `weight`, `distance`, `volume`, `flow`
-- **Special**: `text`, `custom`, `position`, `impedance`
-
-**Custom units**: You can override default units:
-```yaml
-- name: "Custom Pressure"
-  sensor_type: "pressure"
-  unit_of_measurement: "PSI"  # Override default "hPa"
-```
 
 ## Troubleshooting
 

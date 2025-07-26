@@ -21,19 +21,31 @@ devices:
     model: "Relay 3"
     sw_version: "1.0"
     hw_version: "1.0"
-    relays:
+    entities:
       - name: "Relay 1"
         id: "relay_1"
         child_id: 0
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:electric-switch"
       - name: "Relay 2"
         id: "relay_2"
         child_id: 1
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:electric-switch"
       - name: "Relay 3"
         id: "relay_3"
         child_id: 2
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:electric-switch"
       - name: "P2P Toggle"
         id: "p2p_toggle"
         child_id: 4
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:toggle-switch"
 
   - name: "Input 6 #1"
     id: "input_6_1"
@@ -42,35 +54,62 @@ devices:
     model: "Input 6"
     sw_version: "1.0"
     hw_version: "1.0"
-    inputs:
+    entities:
       - name: "Input Button 1"
         id: "input_button_1"
         child_id: 0
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 2"
         id: "input_button_2"
         child_id: 1
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 3"
         id: "input_button_3"
         child_id: 2
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 4"
         id: "input_button_4"
         child_id: 3
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 5"
         id: "input_button_5"
         child_id: 4
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Input Button 6"
         id: "input_button_6"
         child_id: 5
+        entity_type: "binary_sensor"
+        read_only: true
+        device_class: "button"
+        icon: "mdi:button-pointer"
       - name: "Ambient temperature"
         id: "ambient_temperature"
         child_id: 37
-        sensor_type: "temperature"
+        entity_type: "temperature"
+        read_only: true
         entity_category: "diagnostic"
         device_class: "temperature"
+        icon: "mdi:thermometer"
       - name: "MSG Int. (0-255 ms)"
         id: "msg_int"
         child_id: 38
-        sensor_type: "text"
+        entity_type: "sensor"
+        read_only: true
         unit_of_measurement: "ms"
         entity_category: "diagnostic"
         device_class: "duration"
@@ -80,37 +119,43 @@ devices:
       - name: "A Target"
         id: "a_target"
         child_id: 6
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target"
       - name: "B Target"
         id: "b_target"
         child_id: 7
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target"
       - name: "C Target"
         id: "c_target"
         child_id: 8
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target"
       - name: "D Target"
         id: "d_target"
         child_id: 9
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target"
       - name: "E Target"
         id: "e_target"
         child_id: 10
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target"
       - name: "F Target"
         id: "f_target"
         child_id: 11
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target"
       
@@ -118,41 +163,47 @@ devices:
       - name: "A Target Child"
         id: "a_target_child"
         child_id: 12
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target-variant"
       - name: "B Target Child"
         id: "b_target_child"
         child_id: 13
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target-variant"
       - name: "C Target Child"
         id: "c_target_child"
         child_id: 14
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target-variant"
       - name: "D Target Child"
         id: "d_target_child"
         child_id: 15
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target-variant"
       - name: "E Target Child"
         id: "e_target_child"
         child_id: 16
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target-variant"
       - name: "F Target Child"
         id: "f_target_child"
         child_id: 17
-        sensor_type: "text"
+        entity_type: "text"
+        read_only: true
         entity_category: "diagnostic"
         icon: "mdi:target-variant"
 
-  # Example device demonstrating outputs instead of relays  
+  # Example device demonstrating various entity types  
   - name: "Smart Display #1"
     id: "smart_display_1"
     node_id: 6
@@ -160,21 +211,21 @@ devices:
     model: "Smart Display"
     sw_version: "1.0"
     hw_version: "1.0"
-    outputs:
-      # Text output example - allows setting arbitrary text messages
+    entities:
+      # Text entity - allows setting arbitrary text messages
       - name: "Display Message"
         id: "display_message"
         child_id: 0
-        output_type: "text"
+        entity_type: "text"
         initial_value: "Hello World"
         icon: "mdi:message-text"
         entity_category: "config"
       
-      # Number output example - allows setting numeric values with range
+      # Number entity - allows setting numeric values with range
       - name: "Brightness Level"
         id: "brightness_level"
         child_id: 1
-        output_type: "number"
+        entity_type: "number"
         initial_value: "50"
         min_value: 0
         max_value: 100
@@ -182,19 +233,19 @@ devices:
         unit_of_measurement: "%"
         icon: "mdi:brightness-6"
         
-      # Select output example - allows choosing from predefined options
+      # Select entity - allows choosing from predefined options
       - name: "Display Mode"
         id: "display_mode"
         child_id: 2
-        output_type: "select"
+        entity_type: "select"
         initial_value: "normal"
         options: ["normal", "bright", "dim", "off"]
         icon: "mdi:monitor"
         
-      # Switch output example (equivalent to relay but using outputs)
+      # Switch entity (equivalent to relay but using entities)
       - name: "Backlight Power"
         id: "backlight_power"
         child_id: 3
-        output_type: "switch"
+        entity_type: "switch"
         initial_value: "1"
         icon: "mdi:lightbulb"

@@ -69,24 +69,31 @@ func (sm *SyncManager) performSync() {
 	sm.logger.Debug("Starting periodic sync")
 
 	for _, device := range sm.config.Devices {
-		for _, relay := range device.Relays {
-			compositeKey := fmt.Sprintf("%s_%s", device.ID, relay.ID)
+		for _, entity := range device.Entities {
+			// Only sync entities that can receive commands (actuators)
+			if !entity.CanReceiveCommands() {
+				continue
+			}
+			
+			compositeKey := fmt.Sprintf("%s_%s_entity", device.ID, entity.ID)
 			if state, exists := sm.mqttClient.GetState(compositeKey); exists {
-				// State is already in 0/1 format
 				nodeID := device.NodeID
-				if relay.NodeID != nil {
-					nodeID = *relay.NodeID
+				if entity.NodeID != nil {
+					nodeID = *entity.NodeID
 				}
 
+				// Get MySensors variable type for this entity
+				varType, _ := config.GetMySensorsVariableTypeForEntity(entity.EntityType, entity.VariableType)
+
 				requestAck := sm.config.GetEffectiveRequestAck(&device)
-				message := mysensors.NewSetMessageWithAck(nodeID, relay.ChildID, mysensors.V_STATUS, state, requestAck)
+				message := mysensors.NewSetMessageWithAck(nodeID, entity.ChildID, varType, state, requestAck)
 
 				if err := sm.transport.Send(message); err != nil {
-					sm.logger.Error("Failed to sync relay state", "error", err,
-						"device", device.Name, "relay", relay.Name, "state", state)
+					sm.logger.Error("Failed to sync entity state", "error", err,
+						"device", device.Name, "entity", entity.Name, "state", state)
 				} else {
-					sm.logger.Debug("Synced relay state",
-						"device", device.Name, "relay", relay.Name, "state", state)
+					sm.logger.Debug("Synced entity state",
+						"device", device.Name, "entity", entity.Name, "state", state)
 				}
 			}
 		}
