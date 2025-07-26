@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"math"
 	"ms-mqtt-adapter/internal/events"
 	"ms-mqtt-adapter/internal/mysensors"
 	"ms-mqtt-adapter/pkg/config"
@@ -14,6 +15,7 @@ import (
 	"ms-mqtt-adapter/pkg/transport"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -55,6 +57,84 @@ type Application struct {
 	tcpServers map[string]*tcp.Server          // gatewayName -> tcpServer
 	gateways   map[string]*gateway.Gateway     // gatewayName -> gateway
 	syncMgr    *events.SyncManager
+	
+	// Connection retry management
+	transportRetryCount map[string]int
+	mqttRetryCount      int
+	retryMu             sync.RWMutex
+}
+
+// calculateBackoffDelay calculates exponential backoff delay with jitter
+func (app *Application) calculateBackoffDelay(retryCount int) time.Duration {
+	// Base delay of 2 seconds, max 5 minutes
+	baseDelay := 2.0
+	maxDelay := 300.0 // 5 minutes
+	
+	delay := baseDelay * math.Pow(2, float64(retryCount))
+	if delay > maxDelay {
+		delay = maxDelay
+	}
+	
+	// Add some jitter (±25%)
+	jitter := delay * 0.25 * (2*time.Now().UnixNano()%1000/1000.0 - 1)
+	
+	return time.Duration((delay + jitter) * float64(time.Second))
+}
+
+// retryWithBackoff executes a function with exponential backoff retry logic
+func (app *Application) retryWithBackoff(ctx context.Context, operation string, maxRetries int, fn func() error) error {
+	var lastErr error
+	attempt := 0
+	
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		
+		if err := fn(); err != nil {
+			lastErr = err
+			
+			// Check if we've exceeded max retries (if maxRetries >= 0)
+			if maxRetries >= 0 && attempt >= maxRetries {
+				break
+			}
+			
+			delay := app.calculateBackoffDelay(attempt)
+			if maxRetries >= 0 {
+				app.logger.Warn("Operation failed, retrying", 
+					"operation", operation,
+					"attempt", attempt+1,
+					"max_attempts", maxRetries+1,
+					"retry_in", delay,
+					"error", err)
+			} else {
+				app.logger.Warn("Operation failed, retrying", 
+					"operation", operation,
+					"attempt", attempt+1,
+					"retry_in", delay,
+					"error", err)
+			}
+			
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+				attempt++
+				continue
+			}
+		} else {
+			if attempt > 0 {
+				app.logger.Info("Operation succeeded after retries",
+					"operation", operation,
+					"attempts", attempt+1)
+			}
+			return nil
+		}
+	}
+	
+	return fmt.Errorf("operation '%s' failed after %d attempts: %w", operation, maxRetries+1, lastErr)
 }
 
 // Helper methods for backward compatibility during refactoring
@@ -85,6 +165,10 @@ func (app *Application) getDefaultGateway() *gateway.Gateway {
 }
 
 func (app *Application) Run(ctx context.Context) error {
+	// Initialize retry counters
+	app.transportRetryCount = make(map[string]int)
+	app.mqttRetryCount = 0
+	
 	if err := app.initializeTransports(); err != nil {
 		return fmt.Errorf("failed to initialize transports: %w", err)
 	}
@@ -105,7 +189,7 @@ func (app *Application) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize sync manager: %w", err)
 	}
 
-	if err := app.start(ctx); err != nil {
+	if err := app.startWithRetry(ctx); err != nil {
 		return fmt.Errorf("failed to start application: %w", err)
 	}
 
@@ -217,30 +301,136 @@ func (app *Application) initializeSyncManager() error {
 	return nil
 }
 
-func (app *Application) start(ctx context.Context) error {
-	// Connect all transports
-	for gatewayName, gatewayTransport := range app.transports {
-		if err := gatewayTransport.Connect(ctx); err != nil {
-			return fmt.Errorf("failed to connect transport for gateway %s: %w", gatewayName, err)
+func (app *Application) startWithRetry(ctx context.Context) error {
+	// Start connection attempts concurrently
+	var wg sync.WaitGroup
+	errors := make(chan error, len(app.transports)+1) // +1 for MQTT
+	
+	// Connect MQTT with retry
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := app.retryWithBackoff(ctx, "MQTT connection", -1, func() error { // -1 = infinite retries
+			return app.mqttClient.Connect(ctx)
+		})
+		if err != nil {
+			errors <- fmt.Errorf("MQTT connection failed permanently: %w", err)
+		} else {
+			app.logger.Info("MQTT connected successfully")
 		}
+	}()
+	
+	// Connect all transports with retry
+	for gatewayName, gatewayTransport := range app.transports {
+		wg.Add(1)
+		go func(name string, transport transport.Transport) {
+			defer wg.Done()
+			err := app.retryWithBackoff(ctx, fmt.Sprintf("MySensors gateway '%s'", name), -1, func() error { // -1 = infinite retries
+				return transport.Connect(ctx)
+			})
+			if err != nil {
+				errors <- fmt.Errorf("transport connection failed permanently for gateway %s: %w", name, err)
+			} else {
+				app.logger.Info("MySensors gateway connected successfully", "gateway", name)
+			}
+		}(gatewayName, gatewayTransport)
 	}
-
-	if err := app.mqttClient.Connect(ctx); err != nil {
-		return fmt.Errorf("failed to connect MQTT: %w", err)
-	}
-
-	// Start all TCP servers
+	
+	// Start TCP servers (these don't need retry logic as they just bind to ports)
 	for gatewayName, tcpServer := range app.tcpServers {
 		if err := tcpServer.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start TCP server for gateway %s: %w", gatewayName, err)
 		}
+		app.logger.Info("TCP server started", "gateway", gatewayName, "port", tcpServer.Port())
 	}
-
+	
+	// Wait for initial connections or context cancellation
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-errors:
+		// If we get a permanent error, return it
+		return err
+	case <-done:
+		// All connections succeeded
+	}
+	
+	// Start sync manager (only after connections are established)
 	if err := app.syncMgr.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start sync manager: %w", err)
 	}
-
+	
+	// Start connection monitoring and auto-reconnection
+	app.startConnectionMonitoring(ctx)
+	
+	app.logger.Info("Application started successfully")
 	return nil
+}
+
+func (app *Application) startConnectionMonitoring(ctx context.Context) {
+	// Monitor MySensors transport connections
+	for gatewayName, gatewayTransport := range app.transports {
+		go func(name string, transport transport.Transport) {
+			ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
+			defer ticker.Stop()
+			
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					if !transport.IsConnected() {
+						app.logger.Info("MySensors gateway disconnected, attempting reconnection", "gateway", name)
+						
+						// Attempt reconnection with retry
+						err := app.retryWithBackoff(ctx, fmt.Sprintf("MySensors gateway '%s' reconnection", name), -1, func() error {
+							return transport.Connect(ctx)
+						})
+						
+						if err != nil {
+							app.logger.Error("Failed to reconnect MySensors gateway", "gateway", name, "error", err)
+						} else {
+							app.logger.Info("MySensors gateway reconnected successfully", "gateway", name)
+						}
+					}
+				}
+			}
+		}(gatewayName, gatewayTransport)
+	}
+	
+	// Monitor MQTT connection
+	go func() {
+		ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if !app.mqttClient.IsConnected() {
+					app.logger.Info("MQTT broker disconnected, attempting reconnection")
+					
+					// Attempt reconnection with retry
+					err := app.retryWithBackoff(ctx, "MQTT reconnection", -1, func() error {
+						return app.mqttClient.Connect(ctx)
+					})
+					
+					if err != nil {
+						app.logger.Error("Failed to reconnect MQTT broker", "error", err)
+					} else {
+						app.logger.Info("MQTT broker reconnected successfully")
+					}
+				}
+			}
+		}
+	}()
 }
 
 func (app *Application) publishDiscovery() error {

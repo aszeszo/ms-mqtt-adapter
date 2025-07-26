@@ -87,6 +87,10 @@ func (c *Client) Disconnect() {
 	c.logger.Info("MQTT client disconnected")
 }
 
+func (c *Client) IsConnected() bool {
+	return c.client.IsConnected()
+}
+
 func (c *Client) subscribeToDevices() error {
 	for _, device := range c.devices {
 		for _, relay := range device.Relays {

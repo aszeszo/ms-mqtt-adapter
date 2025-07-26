@@ -79,16 +79,22 @@ func (et *EthernetTransport) Disconnect() error {
 
 func (et *EthernetTransport) Send(message *mysensors.Message) error {
 	et.mu.RLock()
-	defer et.mu.RUnlock()
+	conn := et.conn
+	connected := et.connected
+	et.mu.RUnlock()
 
-	if !et.connected || et.conn == nil {
+	if !connected || conn == nil {
 		return fmt.Errorf("not connected to MySensors gateway")
 	}
 
 	msgStr := message.String() + "\n"
-	_, err := et.conn.Write([]byte(msgStr))
+	_, err := conn.Write([]byte(msgStr))
 	if err != nil {
 		et.logger.Error("Failed to send message to MySensors gateway", "error", err, "message", message.String())
+		// Mark as disconnected on write error
+		et.mu.Lock()
+		et.connected = false
+		et.mu.Unlock()
 		return fmt.Errorf("failed to send message: %w", err)
 	}
 
@@ -110,7 +116,11 @@ func (et *EthernetTransport) readLoop() {
 	defer func() {
 		et.mu.Lock()
 		et.connected = false
+		if et.conn != nil {
+			et.conn.Close()
+		}
 		et.mu.Unlock()
+		et.logger.Warn("MySensors gateway connection lost", "host", et.host, "port", et.port)
 	}()
 
 	scanner := bufio.NewScanner(et.conn)
@@ -122,6 +132,8 @@ func (et *EthernetTransport) readLoop() {
 			if !scanner.Scan() {
 				if err := scanner.Err(); err != nil {
 					et.logger.Error("Error reading from MySensors gateway", "error", err)
+				} else {
+					et.logger.Info("MySensors gateway closed connection")
 				}
 				return
 			}

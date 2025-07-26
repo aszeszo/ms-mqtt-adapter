@@ -30,6 +30,10 @@ func NewServer(port int, logger *slog.Logger) *Server {
 	}
 }
 
+func (s *Server) Port() int {
+	return s.port
+}
+
 func (s *Server) Start(ctx context.Context) error {
 	s.ctx, s.cancel = context.WithCancel(ctx)
 
