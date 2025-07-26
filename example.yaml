@@ -42,7 +42,7 @@ mqtt:
 adapter:
   topic_prefix: "ms-mqtt-adapter"
   homeassistant_discovery: true  # Enable/disable HomeAssistant auto-discovery
-  optimistic_mode: false
+  optimistic: false
   request_ack: true  # Request ACK bit to encourage device echoing (default: true)
   sync:
     enabled: true
@@ -150,7 +150,7 @@ devices:
         initial_state: 0
         icon: "hue:socket-eu"
         device_class: "switch"
-        # Uses global optimistic_mode: false (waits for device confirmation)
+        # Uses global optimistic: false (waits for device confirmation)
       - name: "Relay 2 (Fast)"
         id: "relay_2"
         child_id: 1

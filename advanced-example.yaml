@@ -26,7 +26,7 @@ mqtt:
 adapter:
   topic_prefix: "ms-mqtt-adapter"
   homeassistant_discovery: true
-  optimistic_mode: false
+  optimistic: false
   request_ack: true
   sync:
     enabled: true

@@ -217,8 +217,8 @@ func (c *Client) getEffectiveOptimisticMode(deviceID, relayID string) bool {
 						return *relay.Optimistic
 					}
 					// Fall back to global setting
-					if c.adapterCfg.OptimisticMode != nil {
-						return *c.adapterCfg.OptimisticMode
+					if c.adapterCfg.Optimistic != nil {
+						return *c.adapterCfg.Optimistic
 					}
 					// Default to non-optimistic (false)
 					return false
@@ -346,8 +346,8 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 		// Apply relay-specific configurations with defaults
 		if relay.Optimistic != nil {
 			config["optimistic"] = *relay.Optimistic
-		} else if c.adapterCfg.OptimisticMode != nil {
-			config["optimistic"] = *c.adapterCfg.OptimisticMode
+		} else if c.adapterCfg.Optimistic != nil {
+			config["optimistic"] = *c.adapterCfg.Optimistic
 		} else {
 			config["optimistic"] = false
 		}

@@ -65,7 +65,7 @@ options:
     adapter:
       topic_prefix: "ms-mqtt-adapter"
       homeassistant_discovery: true  # Enable/disable HomeAssistant auto-discovery
-      optimistic_mode: false
+      optimistic: false
       request_ack: true  # Request ACK bit to encourage device echoing (default: true)
       sync:
         enabled: true

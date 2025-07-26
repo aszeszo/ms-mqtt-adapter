@@ -59,7 +59,7 @@ type GatewayConfig struct {
 type AdapterConfig struct {
 	TopicPrefix            string     `yaml:"topic_prefix"`
 	HomeAssistantDiscovery *bool      `yaml:"homeassistant_discovery,omitempty"`
-	OptimisticMode         *bool      `yaml:"optimistic_mode,omitempty"`
+	Optimistic             *bool      `yaml:"optimistic,omitempty"`
 	RequestAck             *bool      `yaml:"request_ack,omitempty"`
 	Sync                   SyncConfig `yaml:"sync"`
 }
@@ -319,9 +319,9 @@ func setDefaults(config *Config) {
 	}
 
 	// Default to non-optimistic mode (wait for device confirmation) if not explicitly set
-	if config.AdapterTopics.OptimisticMode == nil {
+	if config.AdapterTopics.Optimistic == nil {
 		optimistic := false
-		config.AdapterTopics.OptimisticMode = &optimistic
+		config.AdapterTopics.Optimistic = &optimistic
 	}
 	
 	// Default to request ACK (helps with device echoing) if not explicitly set

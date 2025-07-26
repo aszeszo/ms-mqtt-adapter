@@ -26,7 +26,7 @@ gateway:
 adapter:
   topic_prefix: "ms-mqtt-adapter"
   homeassistant_discovery: true
-  optimistic_mode: false  # Global default: wait for device confirmation
+  optimistic: false  # Global default: wait for device confirmation
   sync:
     enabled: true
     period: "30s"
@@ -41,7 +41,7 @@ devices:
     sw_version: "2.0"
     hw_version: "1.0"
     relays:
-      # Uses global optimistic_mode: false (waits for confirmation)
+      # Uses global optimistic: false (waits for confirmation)
       - name: "Main Light"
         id: "main_light"
         child_id: 0
@@ -76,7 +76,7 @@ devices:
     sw_version: "1.5"
     hw_version: "1.0"
     relays:
-      # All relays will use global optimistic_mode setting
+      # All relays will use global optimistic setting
       - name: "LED Strip 1"
         id: "led_1"
         child_id: 0
@@ -95,7 +95,7 @@ devices:
 # adapter:
 #   topic_prefix: "ms-mqtt-adapter"
 #   homeassistant_discovery: true
-#   optimistic_mode: true  # Global default: immediate response
+#   optimistic: true  # Global default: immediate response
 #
 # In this case:
 # - All relays respond immediately unless explicitly set to optimistic: false
