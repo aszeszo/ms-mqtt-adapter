@@ -60,23 +60,7 @@ options:
     request_ack: true
 schema:
   log_level: list(debug|info|warn|error)
-  mysensors:
-    match(str):
-      transport: list(ethernet|rs485)
-      ethernet?:
-        host: str
-        port: port
-      rs485?:
-        device: str
-      gateway:
-        node_id_range:
-          start: int(1,254)
-          end: int(1,254)
-        version_request_period: str
-        random_id_assignment?: bool
-      tcp_service:
-        enabled: bool
-        port: port
+  mysensors: "dict?"
   mqtt:
     broker: str
     port: port
@@ -91,55 +75,4 @@ schema:
     homeassistant_discovery: bool
     optimistic_mode?: bool
     request_ack?: bool
-  # Device configurations
-  devices?:
-    - name: str
-      id: str
-      node_id: int
-      gateway?: str
-      manufacturer?: str
-      model?: str
-      sw_version?: str
-      hw_version?: str
-      configuration_url?: str
-      suggested_area?: str
-      connections?: [str]
-      via_device?: str
-      relays?:
-        - name: str
-          id: str
-          child_id: int
-          initial_state?: int
-          icon?: str
-          device_class?: str
-          entity_category?: str
-          enabled_by_default?: bool
-          availability_topic?: str
-          payload_available?: str
-          payload_not_available?: str
-          payload_on?: str
-          payload_off?: str
-          state_on?: str
-          state_off?: str
-          qos?: int
-          retain?: bool
-          optimistic?: bool
-          json_attributes_topic?: str
-          state_value_template?: str
-          command_template?: str
-      inputs?:
-        - name: str
-          id: str
-          child_id: int
-          icon?: str
-          device_class?: str
-          entity_category?: str
-          enabled_by_default?: bool
-          availability_topic?: str
-          payload_available?: str
-          payload_not_available?: str
-          off_delay?: int
-          expire_after?: int
-          qos?: int
-          json_attributes_topic?: str
-          value_template?: str
+  devices?: "list?"
