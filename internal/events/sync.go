@@ -78,7 +78,8 @@ func (sm *SyncManager) performSync() {
 					nodeID = *relay.NodeID
 				}
 
-				message := mysensors.NewSetMessageWithAck(nodeID, relay.ChildID, mysensors.V_STATUS, state, true)
+				requestAck := sm.config.GetEffectiveRequestAck(&device)
+				message := mysensors.NewSetMessageWithAck(nodeID, relay.ChildID, mysensors.V_STATUS, state, requestAck)
 
 				if err := sm.transport.Send(message); err != nil {
 					sm.logger.Error("Failed to sync relay state", "error", err,

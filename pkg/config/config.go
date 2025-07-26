@@ -77,6 +77,7 @@ type Device struct {
 	SuggestedArea    string  `yaml:"suggested_area,omitempty"`
 	Connections      [][]string `yaml:"connections,omitempty"`
 	ViaDevice        string  `yaml:"via_device,omitempty"`
+	RequestAck       *bool   `yaml:"request_ack,omitempty"`
 	Relays           []Relay `yaml:"relays"`
 	Inputs           []Input `yaml:"inputs"`
 }
@@ -180,7 +181,7 @@ func validateConfig(config *Config) error {
 		// Validate TCP service ports for conflicts
 		if mysensorsConfig.TCPService.Enabled {
 			if mysensorsConfig.TCPService.Port == 0 {
-				return fmt.Errorf("mysensors gateway '%s' TCP service port is required when enabled", gatewayName)
+				return fmt.Errorf("mysensors gateway '%s': tcp_service port must be explicitly specified when enabled", gatewayName)
 			}
 			if existingGateway, exists := tcpPorts[mysensorsConfig.TCPService.Port]; exists {
 				return fmt.Errorf("mysensors gateway '%s' TCP service port %d conflicts with gateway '%s'", 
@@ -230,6 +231,18 @@ func (config *Config) GetEffectiveGateway(deviceGateway, componentGateway string
 		return deviceGateway
 	}
 	return "default"
+}
+
+// GetEffectiveRequestAck returns the effective request_ack setting for a device
+func (config *Config) GetEffectiveRequestAck(device *Device) bool {
+	// Priority: device setting > global setting > default (true)
+	if device.RequestAck != nil {
+		return *device.RequestAck
+	}
+	if config.AdapterTopics.RequestAck != nil {
+		return *config.AdapterTopics.RequestAck
+	}
+	return true // Default to true
 }
 
 func setDefaults(config *Config) {
@@ -286,24 +299,18 @@ func setDefaults(config *Config) {
 			gatewayConfig.Gateway.VersionRequestPeriod = 5 * time.Second
 		}
 		
+		// Set default ethernet port if not specified
+		if gatewayConfig.Transport == "ethernet" && gatewayConfig.Ethernet.Port == 0 {
+			gatewayConfig.Ethernet.Port = 5003
+		}
+		
 		// Default to sequential ID assignment (false) if not specified
 		if gatewayConfig.Gateway.RandomIDAssignment == nil {
 			randomAssignment := false
 			gatewayConfig.Gateway.RandomIDAssignment = &randomAssignment
 		}
 		
-		// Set TCP service defaults - auto-assign unique ports for multiple gateways
-		if gatewayConfig.TCPService.Port == 0 && gatewayConfig.TCPService.Enabled {
-			gatewayConfig.TCPService.Port = nextTCPPort
-			nextTCPPort++
-		}
-		// Enable TCP service by default for first gateway ("default") only
-		if gatewayName == "default" && len(config.MySensors) == 1 {
-			gatewayConfig.TCPService.Enabled = true
-			if gatewayConfig.TCPService.Port == 0 {
-				gatewayConfig.TCPService.Port = 5003
-			}
-		}
+		// TCP service is disabled by default and requires explicit port configuration
 
 		config.MySensors[gatewayName] = gatewayConfig
 	}

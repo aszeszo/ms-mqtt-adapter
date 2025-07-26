@@ -17,4 +17,11 @@ Bridge between MySensors sensor networks and Home Assistant via MQTT.
 
 ## Configuration
 
-Configure MySensors gateways, MQTT broker, and device definitions through the addon options. The adapter automatically creates Home Assistant entities for all configured devices.
+The addon uses a single `config_yaml` option where you provide the complete YAML configuration. This gives you full flexibility to configure:
+
+- **MySensors gateways** - Ethernet or RS485 connections to your MySensors networks
+- **MQTT broker** - Connection to your Home Assistant MQTT broker  
+- **Device definitions** - Define your MySensors devices for auto-discovery
+- **Adapter behavior** - Customize optimistic mode, sync settings, and more
+
+See the addon documentation for detailed configuration examples and all available options.

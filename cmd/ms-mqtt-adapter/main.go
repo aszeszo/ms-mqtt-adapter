@@ -381,8 +381,8 @@ func (app *Application) handleMQTTStateChanges() {
 					return
 				}
 
-				// Use configured ACK bit setting (default true to encourage device echoing)
-				requestAck := app.config.AdapterTopics.RequestAck != nil && *app.config.AdapterTopics.RequestAck
+				// Use configured ACK bit setting (priority: device > global > default true)
+				requestAck := app.config.GetEffectiveRequestAck(&currentDevice)
 				message := mysensors.NewSetMessageWithAck(nodeID, currentRelay.ChildID, mysensors.V_STATUS, mysensorsState, requestAck)
 				
 				app.logger.Info("Sending MySensors command", "gateway", gatewayName, "message", message.String())

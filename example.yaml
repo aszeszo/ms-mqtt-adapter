@@ -15,7 +15,7 @@ mysensors:
     # Ethernet transport configuration (required if transport: ethernet)
     ethernet:
       host: "172.30.15.1"  # MySensors gateway IP address (required)
-      port: 5003           # MySensors gateway port (required)
+      port: 5003           # MySensors gateway port (default: 5003)
     
     # RS485 transport configuration (required if transport: rs485) 
     rs485:
@@ -36,8 +36,8 @@ mysensors:
     
     # TCP message replication service (for external MySensors tools)
     tcp_service:
-      enabled: true  # Enable TCP service (default: true for single gateway, false for multi)
-      port: 5003     # TCP port for message replication (default: auto-assigned starting at 5003)
+      enabled: false  # Enable TCP service (default: false)
+      port: 5003      # TCP port for message replication (required when enabled)
 
   # Example second gateway (uncomment to use multiple gateways)
   # garage:
@@ -52,7 +52,7 @@ mysensors:
   #     random_id_assignment: true    # Use random assignment for garage gateway
   #   tcp_service:
   #     enabled: true
-  #     port: 5004  # Must be different port than other gateways
+  #     port: 5004  # Must be different TCP port if enabled
 
 # MQTT broker configuration
 mqtt:
@@ -101,6 +101,7 @@ devices:
       - ["mac", "AA:BB:CC:DD:EE:FF"]
       - ["ip", "192.168.1.100"]
     via_device: "gateway_device_id"        # Parent device ID (optional)
+    request_ack: true                      # Request ACK for this device (optional, overrides global)
     
     relays:
       # Standard relay with global settings
@@ -199,7 +200,7 @@ devices:
         device_class: "motion"
         off_delay: 10                      # Auto-off after 10 seconds of no motion
 
-  # Multi-gateway device example
+  # Multi-gateway device example with per-device request_ack override
   - name: "Garage Door Controller"
     id: "garage_controller"
     node_id: 50
@@ -208,6 +209,7 @@ devices:
     model: "Garage Pro"
     sw_version: "1.0"
     hw_version: "1.0"
+    request_ack: false                     # Disable ACK for this device (faster response)
     
     relays:
       - name: "Garage Door"
@@ -222,6 +224,7 @@ devices:
 # - String values in quotes, numbers without quotes
 # - Duration values use Go duration format: "5s", "30s", "1m", "1h"
 # - MySensors node_id and child_id must match your MySensors device configuration
-# - Individual relay/input settings override device settings, which override global settings
-# - For multiple gateways, ensure TCP service ports are unique
+# - Configuration hierarchy: per-relay/input > per-device > global > defaults
+# - request_ack hierarchy: device setting > global setting > default (true)
+# - For multiple gateways, ensure TCP service ports are unique if enabled
 # - Device IDs and relay/input IDs must be unique across the entire configuration
