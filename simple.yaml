@@ -75,3 +75,79 @@ devices:
         entity_category: "diagnostic"
         device_class: "duration"
         icon: "mdi:clock-outline"
+      
+      # Target diagnostic values (V_TEXT messages)
+      - name: "A Target"
+        id: "a_target"
+        child_id: 6
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target"
+      - name: "B Target"
+        id: "b_target"
+        child_id: 7
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target"
+      - name: "C Target"
+        id: "c_target"
+        child_id: 8
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target"
+      - name: "D Target"
+        id: "d_target"
+        child_id: 9
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target"
+      - name: "E Target"
+        id: "e_target"
+        child_id: 10
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target"
+      - name: "F Target"
+        id: "f_target"
+        child_id: 11
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target"
+      
+      # Target child diagnostic values (V_TEXT messages)
+      - name: "A Target Child"
+        id: "a_target_child"
+        child_id: 12
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target-variant"
+      - name: "B Target Child"
+        id: "b_target_child"
+        child_id: 13
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target-variant"
+      - name: "C Target Child"
+        id: "c_target_child"
+        child_id: 14
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target-variant"
+      - name: "D Target Child"
+        id: "d_target_child"
+        child_id: 15
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target-variant"
+      - name: "E Target Child"
+        id: "e_target_child"
+        child_id: 16
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target-variant"
+      - name: "F Target Child"
+        id: "f_target_child"
+        child_id: 17
+        sensor_type: "text"
+        entity_category: "diagnostic"
+        icon: "mdi:target-variant"
