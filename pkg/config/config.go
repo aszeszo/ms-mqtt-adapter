@@ -285,7 +285,6 @@ func setDefaults(config *Config) {
 	}
 
 	// Set defaults for all MySensors gateways
-	nextTCPPort := 5003
 	for gatewayName, gatewayConfig := range config.MySensors {
 		if gatewayConfig.Gateway.NodeIDRange.Start == 0 {
 			gatewayConfig.Gateway.NodeIDRange.Start = 1

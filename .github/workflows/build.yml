@@ -99,25 +99,18 @@ jobs:
         run: |
           docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-amd64 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-aarch64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-aarch64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armhf \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armv7 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-i386
           docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
 
-      # - name: Create and push manifest for version tag
-      #   run: |
-      #     docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-amd64 \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-aarch64 \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armhf \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armv7 \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-i386
-      #     docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
-
-      # - name: Create and push manifest for latest tag
-      #   run: |
-      #     docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-amd64 \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-aarch64 \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armhf \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armv7 \
-      #       ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-i386
-      #     docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      - name: Create and push manifest for latest tag
+        run: |
+          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-aarch64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armhf \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armv7 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-i386
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

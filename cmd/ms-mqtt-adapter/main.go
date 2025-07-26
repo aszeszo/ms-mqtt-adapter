@@ -76,7 +76,7 @@ func (app *Application) calculateBackoffDelay(retryCount int) time.Duration {
 	}
 	
 	// Add some jitter (±25%)
-	jitter := delay * 0.25 * (2*time.Now().UnixNano()%1000/1000.0 - 1)
+	jitter := delay * 0.25 * (2*float64(time.Now().UnixNano()%1000)/1000.0 - 1)
 	
 	return time.Duration((delay + jitter) * float64(time.Second))
 }
