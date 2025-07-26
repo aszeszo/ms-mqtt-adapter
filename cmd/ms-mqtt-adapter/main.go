@@ -360,6 +360,8 @@ func (app *Application) handleMQTTStateChanges() {
 			// Create composite key for uniqueness across devices
 			compositeKey := fmt.Sprintf("%s_%s", device.ID, relay.ID)
 			app.mqttClient.RegisterStateChangeHandler(compositeKey, func(deviceName, componentName string, state string) {
+				app.logger.Info("MQTT command received", "device", deviceName, "component", componentName, "state", state)
+				
 				mysensorsState := state // State is already 0/1 format
 
 				nodeID := currentDevice.NodeID
@@ -382,12 +384,15 @@ func (app *Application) handleMQTTStateChanges() {
 				// Use configured ACK bit setting (default true to encourage device echoing)
 				requestAck := app.config.AdapterTopics.RequestAck != nil && *app.config.AdapterTopics.RequestAck
 				message := mysensors.NewSetMessageWithAck(nodeID, currentRelay.ChildID, mysensors.V_STATUS, mysensorsState, requestAck)
+				
+				app.logger.Info("Sending MySensors command", "gateway", gatewayName, "message", message.String())
+				
 				if err := gatewayTransport.Send(message); err != nil {
 					app.logger.Error("Failed to send state change to MySensors", "gateway", gatewayName, "error", err,
 						"device", deviceName, "component", componentName, "state", state)
 				} else {
-					app.logger.Debug("MySensors command sent", "gateway", gatewayName, "device", deviceName, "relay", componentName, 
-						"node_id", nodeID, "child_id", currentRelay.ChildID, "state", mysensorsState)
+					app.logger.Info("MySensors command sent successfully", "gateway", gatewayName, "device", deviceName, "relay", componentName, 
+						"node_id", nodeID, "child_id", currentRelay.ChildID, "state", mysensorsState, "message", message.String())
 				}
 			})
 		}

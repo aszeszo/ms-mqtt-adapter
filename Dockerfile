@@ -12,4 +12,11 @@ WORKDIR /
 
 COPY --from=builder /app/ms-mqtt-adapter .
 
+# Home Assistant addon labels
+LABEL \
+    io.hass.name="MySensors MQTT Adapter" \
+    io.hass.description="Bridge between MySensors networks and MQTT with Home Assistant auto-discovery" \
+    io.hass.arch="amd64|aarch64|armhf|armv7|i386" \
+    io.hass.type="addon" \
+    io.hass.version="2.0.2"
 CMD ["/ms-mqtt-adapter", "-config", "/data/options.json"]
