@@ -58,21 +58,3 @@ options:
     homeassistant_discovery: true
     optimistic_mode: false
     request_ack: true
-schema:
-  log_level: list(debug|info|warn|error)
-  mysensors?: match(.*)
-  mqtt:
-    broker: str
-    port: port
-    username: str?
-    password: password?
-    client_id: str
-  sync:
-    enabled: bool
-    period: str
-  adapter:
-    topic_prefix: str
-    homeassistant_discovery: bool
-    optimistic_mode?: bool
-    request_ack?: bool
-  devices?: list(match(.*))
