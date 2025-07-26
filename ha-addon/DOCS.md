@@ -63,42 +63,36 @@ devices:
         child_id: 0
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 2"
         id: "input_button_2"
         child_id: 1
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 3"
         id: "input_button_3"
         child_id: 2
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 4"
         id: "input_button_4"
         child_id: 3
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 5"
         id: "input_button_5"
         child_id: 4
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 6"
         id: "input_button_6"
         child_id: 5
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
 
   # Example device with sensors (numeric measurements)

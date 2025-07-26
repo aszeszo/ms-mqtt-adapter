@@ -496,8 +496,12 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 		}
 
 	case "text":
-		haEntityType = "text"
-		// Text entities don't need payload configuration
+		if entity.IsReadOnly() {
+			// For read-only text entities, use sensor instead of text
+			haEntityType = "sensor"
+		} else {
+			haEntityType = "text"
+		}
 
 	case "number":
 		haEntityType = "number"

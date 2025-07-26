@@ -60,42 +60,36 @@ devices:
         child_id: 0
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 2"
         id: "input_button_2"
         child_id: 1
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 3"
         id: "input_button_3"
         child_id: 2
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 4"
         id: "input_button_4"
         child_id: 3
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 5"
         id: "input_button_5"
         child_id: 4
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Input Button 6"
         id: "input_button_6"
         child_id: 5
         entity_type: "binary_sensor"
         read_only: true
-        device_class: "button"
         icon: "mdi:button-pointer"
       - name: "Ambient temperature"
         id: "ambient_temperature"
@@ -108,99 +102,97 @@ devices:
       - name: "MSG Int. (0-255 ms)"
         id: "msg_int"
         child_id: 38
-        entity_type: "sensor"
-        read_only: true
-        unit_of_measurement: "ms"
-        entity_category: "diagnostic"
-        device_class: "duration"
-        icon: "mdi:clock-outline"
+        entity_type: "text"
+        initial_value: "MSG Int. (0-255 ms)"
+        entity_category: "config"
+        icon: "mdi:clock-edit"
       
-      # Target diagnostic values (V_TEXT messages)
+      # Target control values (V_TEXT messages) - writable
       - name: "A Target"
         id: "a_target"
         child_id: 6
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "A Target"
+        entity_category: "config"
         icon: "mdi:target"
       - name: "B Target"
         id: "b_target"
         child_id: 7
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "B Target"
+        entity_category: "config"
         icon: "mdi:target"
       - name: "C Target"
         id: "c_target"
         child_id: 8
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "C Target"
+        entity_category: "config"
         icon: "mdi:target"
       - name: "D Target"
         id: "d_target"
         child_id: 9
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "D Target"
+        entity_category: "config"
         icon: "mdi:target"
       - name: "E Target"
         id: "e_target"
         child_id: 10
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "E Target"
+        entity_category: "config"
         icon: "mdi:target"
       - name: "F Target"
         id: "f_target"
         child_id: 11
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "F Target"
+        entity_category: "config"
         icon: "mdi:target"
       
-      # Target child diagnostic values (V_TEXT messages)
+      # Target child control values (V_TEXT messages) - writable
       - name: "A Target Child"
         id: "a_target_child"
         child_id: 12
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "A Target child"
+        entity_category: "config"
         icon: "mdi:target-variant"
       - name: "B Target Child"
         id: "b_target_child"
         child_id: 13
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "B Target child"
+        entity_category: "config"
         icon: "mdi:target-variant"
       - name: "C Target Child"
         id: "c_target_child"
         child_id: 14
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "C Target child"
+        entity_category: "config"
         icon: "mdi:target-variant"
       - name: "D Target Child"
         id: "d_target_child"
         child_id: 15
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "D Target child"
+        entity_category: "config"
         icon: "mdi:target-variant"
       - name: "E Target Child"
         id: "e_target_child"
         child_id: 16
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "E Target child"
+        entity_category: "config"
         icon: "mdi:target-variant"
       - name: "F Target Child"
         id: "f_target_child"
         child_id: 17
         entity_type: "text"
-        read_only: true
-        entity_category: "diagnostic"
+        initial_value: "F Target child"
+        entity_category: "config"
         icon: "mdi:target-variant"
 
   # Example device demonstrating various entity types  
