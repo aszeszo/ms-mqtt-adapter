@@ -60,7 +60,7 @@ options:
     request_ack: true
 schema:
   log_level: list(debug|info|warn|error)
-  mysensors: "dict?"
+  mysensors?: match(.*)
   mqtt:
     broker: str
     port: port
@@ -75,4 +75,4 @@ schema:
     homeassistant_discovery: bool
     optimistic_mode?: bool
     request_ack?: bool
-  devices?: "list?"
+  devices?: list(match(.*))
