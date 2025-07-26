@@ -1,3 +1,4 @@
+ARG BUILD_FROM
 FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
@@ -6,11 +7,19 @@ RUN go mod download
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o ms-mqtt-adapter ./cmd/ms-mqtt-adapter
 
-FROM alpine:3.22
+FROM $BUILD_FROM
+
+# Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates
+
 WORKDIR /
 
+# Copy the binary from builder
 COPY --from=builder /app/ms-mqtt-adapter .
+
+# Copy run script
+COPY run.sh /
+RUN chmod a+x /run.sh
 
 # Home Assistant addon labels
 LABEL \
@@ -19,4 +28,5 @@ LABEL \
     io.hass.arch="amd64|aarch64|armhf|armv7|i386" \
     io.hass.type="addon" \
     io.hass.version="2.0.2"
-CMD ["/ms-mqtt-adapter", "-config", "/data/options.json"]
+
+CMD ["/run.sh"]

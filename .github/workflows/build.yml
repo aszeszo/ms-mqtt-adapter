@@ -18,6 +18,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix:
+        arch: [amd64, aarch64, armhf, armv7, i386]
 
     steps:
       - name: Checkout repository
@@ -33,14 +36,62 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set platform mapping
+        id: platform
+        run: |
+          case ${{ matrix.arch }} in
+            amd64) echo "platform=linux/amd64" >> $GITHUB_OUTPUT ;;
+            aarch64) echo "platform=linux/arm64" >> $GITHUB_OUTPUT ;;
+            armv7) echo "platform=linux/arm/v7" >> $GITHUB_OUTPUT ;;
+            armhf) echo "platform=linux/arm/v6" >> $GITHUB_OUTPUT ;;
+            i386) echo "platform=linux/386" >> $GITHUB_OUTPUT ;;
+          esac
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6,linux/386
+          platforms: ${{ steps.platform.outputs.platform }}
           push: true
+          build-args: |
+            BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-${{ matrix.arch }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+
+  manifest:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push manifest for version tag
+        run: |
+          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-aarch64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-armhf \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-armv7 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-i386
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2
+
+      - name: Create and push manifest for latest tag
+        run: |
+          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-aarch64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armhf \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armv7 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-i386
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
