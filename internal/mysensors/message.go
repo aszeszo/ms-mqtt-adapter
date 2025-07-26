@@ -131,6 +131,16 @@ const (
 	V_HVAC_SETPOINT_COOL VariableType = 44
 	V_HVAC_SETPOINT_HEAT VariableType = 45
 	V_HVAC_FLOW_MODE     VariableType = 46
+	V_TEXT               VariableType = 47
+	V_CUSTOM             VariableType = 48
+	V_POSITION           VariableType = 49
+	V_IR_RECORD          VariableType = 50
+	V_PH                 VariableType = 51
+	V_ORP                VariableType = 52
+	V_EC                 VariableType = 53
+	V_VAR                VariableType = 54
+	V_VA                 VariableType = 55
+	V_POWER_FACTOR       VariableType = 56
 )
 
 type Message struct {

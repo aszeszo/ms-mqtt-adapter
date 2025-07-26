@@ -192,13 +192,202 @@ devices:
         json_attributes_template: "{{ value_json }}"  # JSON attributes template
         value_template: "{{ value }}"                 # Value template
 
-      # Motion sensor example
+      # Motion sensor example (binary sensor)
       - name: "Motion Sensor"
         id: "motion_1"
         child_id: 1
+        sensor_type: "binary"              # Explicit binary sensor type (default)
         icon: "mdi:motion-sensor"
         device_class: "motion"
         off_delay: 10                      # Auto-off after 10 seconds of no motion
+
+  # Example sensor device with numeric measurements
+  - name: "Environmental Sensor"
+    id: "env_sensor_1"
+    node_id: 3
+    manufacturer: "ACME Electronics"
+    model: "Env Pro"
+    sw_version: "1.0"
+    hw_version: "1.0"
+    
+    inputs:
+      # Temperature sensor (numeric)
+      - name: "Temperature"
+        id: "temperature"
+        child_id: 0
+        sensor_type: "temperature"         # Numeric sensor type
+        unit_of_measurement: "°C"          # Temperature unit (default: °C)
+        state_class: "measurement"         # Home Assistant state class (default: measurement)
+        icon: "mdi:thermometer"
+        device_class: "temperature"
+        
+      # Humidity sensor (numeric)
+      - name: "Humidity"
+        id: "humidity"
+        child_id: 1
+        sensor_type: "humidity"            # Numeric sensor type
+        unit_of_measurement: "%"           # Humidity unit (default: %)
+        state_class: "measurement"         # Home Assistant state class (default: measurement)
+        icon: "mdi:water-percent"
+        device_class: "humidity"
+        
+      # Battery level (numeric with diagnostic category)
+      - name: "Battery Level"
+        id: "battery"
+        child_id: 2
+        sensor_type: "battery"             # Battery sensor type
+        unit_of_measurement: "%"           # Battery unit (default: %)
+        state_class: "measurement"         # Home Assistant state class (default: measurement)
+        entity_category: "diagnostic"     # Shows in diagnostic section (default for battery)
+        icon: "mdi:battery"
+        device_class: "battery"
+        
+      # Voltage sensor (numeric)
+      - name: "Input Voltage"
+        id: "voltage"
+        child_id: 3
+        sensor_type: "voltage"             # Voltage sensor type
+        unit_of_measurement: "V"           # Voltage unit (default: V)
+        state_class: "measurement"
+        icon: "mdi:flash"
+        device_class: "voltage"
+        
+      # Current sensor (numeric)
+      - name: "Current Draw"
+        id: "current"
+        child_id: 4
+        sensor_type: "current"             # Current sensor type
+        unit_of_measurement: "A"           # Current unit (default: A)
+        state_class: "measurement"
+        icon: "mdi:current-ac"
+        
+      # Pressure sensor (numeric)
+      - name: "Atmospheric Pressure"
+        id: "pressure"
+        child_id: 5
+        sensor_type: "pressure"            # Pressure sensor type
+        unit_of_measurement: "hPa"         # Pressure unit (default: hPa)
+        state_class: "measurement"
+        icon: "mdi:gauge"
+        device_class: "atmospheric_pressure"
+        
+      # Level sensor (numeric)
+      - name: "Water Level"
+        id: "water_level"
+        child_id: 6
+        sensor_type: "level"               # Level sensor type
+        unit_of_measurement: "%"           # Level unit (default: %)
+        state_class: "measurement"
+        icon: "mdi:waves"
+        
+      # Custom numeric sensor with custom units
+      - name: "Custom Measurement"
+        id: "custom_measurement"
+        child_id: 7
+        sensor_type: "level"               # Use level type for generic numeric values
+        unit_of_measurement: "ppm"         # Custom unit
+        state_class: "measurement"
+        icon: "mdi:chemical-weapon"
+        value_template: "{{ value | round(2) }}"  # Round to 2 decimal places
+
+  # Example device with additional sensor types
+  - name: "Advanced Sensor Hub"
+    id: "advanced_sensor_hub"
+    node_id: 4
+    manufacturer: "ACME Electronics"
+    model: "Advanced Hub Pro"
+    sw_version: "1.0"
+    hw_version: "1.0"
+    
+    inputs:
+      # Power monitoring sensors
+      - name: "Power Consumption"
+        id: "power_watt"
+        child_id: 0
+        sensor_type: "watt"                # Power in watts
+        icon: "mdi:flash"
+        device_class: "power"
+        
+      - name: "Energy Total"
+        id: "energy_kwh"
+        child_id: 1
+        sensor_type: "kwh"                 # Energy in kWh (total_increasing)
+        icon: "mdi:lightning-bolt"
+        device_class: "energy"
+        
+      # Environmental sensors
+      - name: "Light Level"
+        id: "light_level"
+        child_id: 2
+        sensor_type: "light_level"         # Light in lux
+        icon: "mdi:brightness-6"
+        device_class: "illuminance"
+        
+      - name: "UV Index"
+        id: "uv_index"
+        child_id: 3
+        sensor_type: "uv"                  # UV index
+        icon: "mdi:weather-sunny"
+        
+      # Water quality sensors
+      - name: "pH Level"
+        id: "ph_level"
+        child_id: 4
+        sensor_type: "ph"                  # pH value
+        icon: "mdi:ph"
+        
+      - name: "EC Level"
+        id: "ec_level"
+        child_id: 5
+        sensor_type: "ec"                  # Electrical conductivity
+        icon: "mdi:water-check"
+        
+      # Weather sensors
+      - name: "Wind Speed"
+        id: "wind_speed"
+        child_id: 6
+        sensor_type: "wind"                # Wind speed in m/s
+        icon: "mdi:weather-windy"
+        device_class: "wind_speed"
+        
+      - name: "Wind Direction"
+        id: "wind_direction"
+        child_id: 7
+        sensor_type: "direction"           # Wind direction in degrees
+        icon: "mdi:compass"
+        
+      - name: "Rain Rate"
+        id: "rain_rate"
+        child_id: 8
+        sensor_type: "rainrate"            # Rain rate in mm/h
+        icon: "mdi:weather-rainy"
+        
+      # Distance/weight sensors
+      - name: "Distance Sensor"
+        id: "distance"
+        child_id: 9
+        sensor_type: "distance"            # Distance in meters
+        unit_of_measurement: "cm"          # Override default unit
+        icon: "mdi:ruler"
+        
+      - name: "Weight Scale"
+        id: "weight"
+        child_id: 10
+        sensor_type: "weight"              # Weight in kg
+        icon: "mdi:scale"
+        
+      # Text/custom sensors
+      - name: "Status Message"
+        id: "status_text"
+        child_id: 11
+        sensor_type: "text"                # Text messages (V_TEXT)
+        icon: "mdi:message-text"
+        
+      - name: "Custom Data"
+        id: "custom_data"
+        child_id: 12
+        sensor_type: "custom"              # Custom data format
+        icon: "mdi:database"
 
   # Multi-gateway device example with per-device request_ack override
   - name: "Garage Door Controller"
@@ -228,3 +417,16 @@ devices:
 # - request_ack hierarchy: device setting > global setting > default (true)
 # - For multiple gateways, ensure TCP service ports are unique if enabled
 # - Device IDs and relay/input IDs must be unique across the entire configuration
+# 
+# Sensor Types:
+# - Binary sensors (sensor_type: "binary" or omitted): Use 0/1 values, appear as binary_sensor in HA
+# - Numeric sensors: All appear as sensor entities in Home Assistant with proper units
+# 
+# Available sensor types and their MySensors variable type mappings:
+# Basic sensors: temperature→V_TEMP, humidity→V_HUM, battery→V_PERCENTAGE, voltage→V_VOLTAGE,
+#                current→V_CURRENT, pressure→V_PRESSURE, level→V_LEVEL, percentage→V_PERCENTAGE
+# Power/Energy:  watt→V_WATT, kwh→V_KWH, var→V_VAR, va→V_VA, power_factor→V_POWER_FACTOR
+# Environmental: light_level→V_LIGHT_LEVEL, uv→V_UV, ph→V_PH, orp→V_ORP, ec→V_EC
+# Weather:       wind→V_WIND, gust→V_GUST, direction→V_DIRECTION, rain→V_RAIN, rainrate→V_RAINRATE
+# Physical:      weight→V_WEIGHT, distance→V_DISTANCE, volume→V_VOLUME, flow→V_FLOW
+# Special:       text→V_TEXT, custom→V_CUSTOM, position→V_POSITION, impedance→V_IMPEDANCE

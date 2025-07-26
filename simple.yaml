@@ -5,6 +5,8 @@ mysensors:
     tcp_service:
       enabled: true
       port: 5003
+    gateway:
+      version_request_period: "6666660s"
 
 mqtt:
   broker: "192.168.122.160"
@@ -35,7 +37,7 @@ devices:
 
   - name: "Input 6 #1"
     id: "input_6_1"
-    node_id: 2
+    node_id: 1
     manufacturer: "Nippy"
     model: "Input 6"
     sw_version: "1.0"
@@ -59,3 +61,17 @@ devices:
       - name: "Input Button 6"
         id: "input_button_6"
         child_id: 5
+      - name: "Ambient temperature"
+        id: "ambient_temperature"
+        child_id: 37
+        sensor_type: "temperature"
+        entity_category: "diagnostic"
+        device_class: "temperature"
+      - name: "MSG Int. (0-255 ms)"
+        id: "msg_int"
+        child_id: 38
+        sensor_type: "text"
+        unit_of_measurement: "ms"
+        entity_category: "diagnostic"
+        device_class: "duration"
+        icon: "mdi:clock-outline"

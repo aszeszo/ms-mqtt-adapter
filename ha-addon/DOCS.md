@@ -67,6 +67,28 @@ devices:
       - name: "Input Button 6"
         id: "input_button_6"
         child_id: 5
+
+  # Example device with sensors (numeric measurements)
+  - name: "Environment Sensor"
+    id: "env_sensor"
+    node_id: 5
+    manufacturer: "Nippy"
+    model: "Environment Pro" 
+    sw_version: "1.0"
+    hw_version: "1.0"
+    inputs:
+      - name: "Temperature"
+        id: "temperature"
+        child_id: 0
+        sensor_type: "temperature"  # Numeric temperature sensor
+      - name: "Humidity"
+        id: "humidity"
+        child_id: 1
+        sensor_type: "humidity"     # Numeric humidity sensor
+      - name: "Battery Level"
+        id: "battery"
+        child_id: 2
+        sensor_type: "battery"      # Numeric battery sensor
 ```
 
 ### What's using defaults in this config:
@@ -149,6 +171,85 @@ adapter:
   sync:
     enabled: true
     period: "30s"  # Sync every 30 seconds
+```
+
+### Sensor Types
+
+The adapter supports both binary and numeric sensors:
+
+#### Binary Sensors (Default)
+For buttons, switches, motion detectors, etc. that report 0/1 values:
+
+```yaml
+inputs:
+  - name: "Motion Sensor"
+    id: "motion"
+    child_id: 0
+    sensor_type: "binary"  # Optional - this is the default
+    device_class: "motion"
+```
+
+#### Numeric Sensors
+For temperature, humidity, battery levels, etc. that report numeric values:
+
+```yaml
+inputs:
+  - name: "Temperature"
+    id: "temperature"
+    child_id: 0
+    sensor_type: "temperature"    # Maps to MySensors V_TEMP
+    # Defaults: unit="°C", state_class="measurement"
+    
+  - name: "Humidity"
+    id: "humidity" 
+    child_id: 1
+    sensor_type: "humidity"       # Maps to MySensors V_HUM
+    # Defaults: unit="%", state_class="measurement"
+    
+  - name: "Battery"
+    id: "battery"
+    child_id: 2
+    sensor_type: "battery"        # Maps to MySensors V_PERCENTAGE
+    # Defaults: unit="%", state_class="measurement", entity_category="diagnostic"
+    
+  - name: "Voltage"
+    id: "voltage"
+    child_id: 3
+    sensor_type: "voltage"        # Maps to MySensors V_VOLTAGE
+    # Defaults: unit="V", state_class="measurement"
+    
+  - name: "Current"
+    id: "current"
+    child_id: 4
+    sensor_type: "current"        # Maps to MySensors V_CURRENT
+    # Defaults: unit="A", state_class="measurement"
+    
+  - name: "Pressure"
+    id: "pressure"
+    child_id: 5
+    sensor_type: "pressure"       # Maps to MySensors V_PRESSURE
+    # Defaults: unit="hPa", state_class="measurement"
+    
+  - name: "Level"
+    id: "level"
+    child_id: 6
+    sensor_type: "level"          # Maps to MySensors V_LEVEL
+    # Defaults: unit="%", state_class="measurement"
+```
+
+**Available sensor types**: 
+- **Basic**: `binary`, `temperature`, `humidity`, `battery`, `voltage`, `current`, `pressure`, `level`, `percentage`
+- **Power/Energy**: `watt`, `kwh`, `var`, `va`, `power_factor`  
+- **Environmental**: `light_level`, `uv`, `ph`, `orp`, `ec`
+- **Weather**: `wind`, `gust`, `direction`, `rain`, `rainrate`
+- **Physical**: `weight`, `distance`, `volume`, `flow`
+- **Special**: `text`, `custom`, `position`, `impedance`
+
+**Custom units**: You can override default units:
+```yaml
+- name: "Custom Pressure"
+  sensor_type: "pressure"
+  unit_of_measurement: "PSI"  # Override default "hPa"
 ```
 
 ## Troubleshooting

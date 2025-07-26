@@ -632,14 +632,32 @@ func (app *Application) handleDeviceMessage(message *mysensors.Message) {
 
 			if effectiveNodeID == message.NodeID && input.ChildID == message.ChildID {
 				if message.IsSet() {
-					state := message.Payload // Use payload directly (should be 0 or 1)
-					if err := app.mqttClient.PublishInputState(device, input, state); err != nil {
-						app.logger.Error("Failed to publish input state", "error", err,
-							"device", device.Name, "input", input.Name, "state", state)
+					// Check if this is a sensor value message
+					if config.IsBinarySensor(input.SensorType) {
+						// Handle binary sensor (existing logic)
+						state := message.Payload // Use payload directly (should be 0 or 1)
+						if err := app.mqttClient.PublishInputState(device, input, state); err != nil {
+							app.logger.Error("Failed to publish input state", "error", err,
+								"device", device.Name, "input", input.Name, "state", state)
+						} else {
+							app.logger.Info("Input state changed", "device", device.Name, "input", input.Name,
+								"node_id", effectiveNodeID, "child_id", input.ChildID, "state", state)
+							matchedInputs = append(matchedInputs, fmt.Sprintf("%s:%s", device.Name, input.Name))
+						}
 					} else {
-						app.logger.Info("Input state changed", "device", device.Name, "input", input.Name,
-							"node_id", effectiveNodeID, "child_id", input.ChildID, "state", state)
-						matchedInputs = append(matchedInputs, fmt.Sprintf("%s:%s", device.Name, input.Name))
+						// Handle numeric sensor
+						expectedVarType, exists := config.GetMySensorsVariableType(input.SensorType)
+						if exists && message.GetVariableType() == expectedVarType {
+							sensorValue := message.Payload
+							if err := app.mqttClient.PublishSensorState(device, input, sensorValue); err != nil {
+								app.logger.Error("Failed to publish sensor state", "error", err,
+									"device", device.Name, "sensor", input.Name, "value", sensorValue)
+							} else {
+								app.logger.Info("Sensor value changed", "device", device.Name, "sensor", input.Name,
+									"sensor_type", input.SensorType, "node_id", effectiveNodeID, "child_id", input.ChildID, "value", sensorValue)
+								matchedInputs = append(matchedInputs, fmt.Sprintf("%s:%s", device.Name, input.Name))
+							}
+						}
 					}
 				}
 			}

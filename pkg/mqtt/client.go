@@ -127,18 +127,36 @@ func (c *Client) subscribeToStateTopic() error {
 			c.logger.Debug("Subscribed to relay state topic", "topic", stateTopic)
 		}
 
-		// Subscribe to input state topics
+		// Subscribe to input state topics (binary sensors)
 		for _, input := range device.Inputs {
-			stateTopic := fmt.Sprintf("%s/devices/%s/input/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID)
-			compositeKey := fmt.Sprintf("%s_%s", device.ID, input.ID)
-			token := c.client.Subscribe(stateTopic, 0, c.createStateHandler(compositeKey))
-			if !token.WaitTimeout(5 * time.Second) {
-				return fmt.Errorf("subscription timeout for input state topic %s", stateTopic)
+			if config.IsBinarySensor(input.SensorType) {
+				stateTopic := fmt.Sprintf("%s/devices/%s/input/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID)
+				compositeKey := fmt.Sprintf("%s_%s", device.ID, input.ID)
+				token := c.client.Subscribe(stateTopic, 0, c.createStateHandler(compositeKey))
+				if !token.WaitTimeout(5 * time.Second) {
+					return fmt.Errorf("subscription timeout for input state topic %s", stateTopic)
+				}
+				if token.Error() != nil {
+					return fmt.Errorf("subscription failed for input state topic %s: %w", stateTopic, token.Error())
+				}
+				c.logger.Debug("Subscribed to input state topic", "topic", stateTopic)
 			}
-			if token.Error() != nil {
-				return fmt.Errorf("subscription failed for input state topic %s: %w", stateTopic, token.Error())
+		}
+
+		// Subscribe to sensor state topics (numeric sensors)
+		for _, input := range device.Inputs {
+			if !config.IsBinarySensor(input.SensorType) {
+				stateTopic := fmt.Sprintf("%s/devices/%s/sensor/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID)
+				compositeKey := fmt.Sprintf("%s_%s_sensor", device.ID, input.ID)
+				token := c.client.Subscribe(stateTopic, 0, c.createStateHandler(compositeKey))
+				if !token.WaitTimeout(5 * time.Second) {
+					return fmt.Errorf("subscription timeout for sensor state topic %s", stateTopic)
+				}
+				if token.Error() != nil {
+					return fmt.Errorf("subscription failed for sensor state topic %s: %w", stateTopic, token.Error())
+				}
+				c.logger.Debug("Subscribed to sensor state topic", "topic", stateTopic)
 			}
-			c.logger.Debug("Subscribed to input state topic", "topic", stateTopic)
 		}
 	}
 	return nil
@@ -155,16 +173,24 @@ func (c *Client) createStateHandler(uniqueID string) mqtt.MessageHandler {
 			return
 		}
 
-		// Validate payload is 0 or 1
-		if payload != "0" && payload != "1" {
-			c.logger.Warn("Invalid state payload, expected 0 or 1", "payload", payload, "topic", msg.Topic())
-			return
-		}
+		// For sensor topics (contains "_sensor"), accept any numeric value
+		if strings.Contains(uniqueID, "_sensor") {
+			// Store the sensor value
+			c.stateMu.Lock()
+			c.states[uniqueID] = payload
+			c.stateMu.Unlock()
+		} else {
+			// For binary sensor topics, validate payload is 0 or 1
+			if payload != "0" && payload != "1" {
+				c.logger.Warn("Invalid state payload, expected 0 or 1", "payload", payload, "topic", msg.Topic())
+				return
+			}
 
-		// Store the existing state
-		c.stateMu.Lock()
-		c.states[uniqueID] = payload
-		c.stateMu.Unlock()
+			// Store the existing state
+			c.stateMu.Lock()
+			c.states[uniqueID] = payload
+			c.stateMu.Unlock()
+		}
 	}
 }
 
@@ -284,6 +310,19 @@ func (c *Client) PublishInputState(device config.Device, input config.Input, sta
 	c.stateMu.Unlock()
 	
 	return c.Publish(deviceStateTopic, state, true)
+}
+
+func (c *Client) PublishSensorState(device config.Device, input config.Input, value string) error {
+	// Publish to device-specific sensor state topic using sensor value with retain flag
+	sensorStateTopic := fmt.Sprintf("%s/devices/%s/sensor/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID)
+	
+	// Update internal state tracking
+	compositeKey := fmt.Sprintf("%s_%s_sensor", device.ID, input.ID)
+	c.stateMu.Lock()
+	c.states[compositeKey] = value
+	c.stateMu.Unlock()
+	
+	return c.Publish(sensorStateTopic, value, true)
 }
 
 func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
@@ -438,83 +477,111 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 	}
 
 	for _, input := range device.Inputs {
-		// Always use binary_sensor for inputs
-		entityType := "binary_sensor"
+		var entityType string
+		var discoveryConfig map[string]interface{}
 
-		config := map[string]interface{}{
-			"name":        input.Name,
-			"unique_id":   fmt.Sprintf("%s_%s", device.ID, input.ID),
-			"state_topic": fmt.Sprintf("%s/devices/%s/input/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID),
-			"device":      deviceInfo,
-		}
+		if config.IsBinarySensor(input.SensorType) {
+			// Binary sensor configuration
+			entityType = "binary_sensor"
+			discoveryConfig = map[string]interface{}{
+				"name":        input.Name,
+				"unique_id":   fmt.Sprintf("%s_%s", device.ID, input.ID),
+				"state_topic": fmt.Sprintf("%s/devices/%s/input/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID),
+				"device":      deviceInfo,
+			}
 
-		// Set payload and state values with defaults
-		if input.PayloadOn != "" {
-			config["payload_on"] = input.PayloadOn
+			// Set payload and state values with defaults
+			if input.PayloadOn != "" {
+				discoveryConfig["payload_on"] = input.PayloadOn
+			} else {
+				discoveryConfig["payload_on"] = "1"
+			}
+			if input.PayloadOff != "" {
+				discoveryConfig["payload_off"] = input.PayloadOff
+			} else {
+				discoveryConfig["payload_off"] = "0"
+			}
+			if input.StateOn != "" {
+				discoveryConfig["state_on"] = input.StateOn
+			}
+			if input.StateOff != "" {
+				discoveryConfig["state_off"] = input.StateOff
+			}
 		} else {
-			config["payload_on"] = "1"
-		}
-		if input.PayloadOff != "" {
-			config["payload_off"] = input.PayloadOff
-		} else {
-			config["payload_off"] = "0"
-		}
-		if input.StateOn != "" {
-			config["state_on"] = input.StateOn
-		}
-		if input.StateOff != "" {
-			config["state_off"] = input.StateOff
+			// Numeric sensor configuration
+			entityType = "sensor"
+			discoveryConfig = map[string]interface{}{
+				"name":        input.Name,
+				"unique_id":   fmt.Sprintf("%s_%s_sensor", device.ID, input.ID),
+				"state_topic": fmt.Sprintf("%s/devices/%s/sensor/%s/state", c.adapterCfg.TopicPrefix, device.ID, input.ID),
+				"device":      deviceInfo,
+			}
+
+			// Add sensor-specific fields
+			if input.UnitOfMeasurement != "" {
+				discoveryConfig["unit_of_measurement"] = input.UnitOfMeasurement
+			}
+			// Only add state_class for sensors that should have it (not text/custom sensors)
+			if input.StateClass != "" && input.SensorType != "text" && input.SensorType != "custom" {
+				discoveryConfig["state_class"] = input.StateClass
+			}
+			if input.ValueTemplate != "" {
+				discoveryConfig["value_template"] = input.ValueTemplate
+			}
 		}
 
 		// Apply input-specific configurations
 		if input.QOS != nil {
-			config["qos"] = *input.QOS
+			discoveryConfig["qos"] = *input.QOS
 		} else {
-			config["qos"] = 0
+			discoveryConfig["qos"] = 0
 		}
 
 		if input.Icon != "" {
-			config["icon"] = input.Icon
+			discoveryConfig["icon"] = input.Icon
 		}
 		if input.DeviceClass != "" {
-			config["device_class"] = input.DeviceClass
+			discoveryConfig["device_class"] = input.DeviceClass
 		}
 		if input.EntityCategory != "" {
-			config["entity_category"] = input.EntityCategory
+			discoveryConfig["entity_category"] = input.EntityCategory
 		}
 		if input.EnabledByDefault != nil {
-			config["enabled_by_default"] = *input.EnabledByDefault
+			discoveryConfig["enabled_by_default"] = *input.EnabledByDefault
 		}
 		if input.AvailabilityTopic != "" {
-			config["availability_topic"] = input.AvailabilityTopic
+			discoveryConfig["availability_topic"] = input.AvailabilityTopic
 			if input.PayloadAvailable != "" {
-				config["payload_available"] = input.PayloadAvailable
+				discoveryConfig["payload_available"] = input.PayloadAvailable
 			} else {
-				config["payload_available"] = "online"
+				discoveryConfig["payload_available"] = "online"
 			}
 			if input.PayloadNotAvailable != "" {
-				config["payload_not_available"] = input.PayloadNotAvailable
+				discoveryConfig["payload_not_available"] = input.PayloadNotAvailable
 			} else {
-				config["payload_not_available"] = "offline"
+				discoveryConfig["payload_not_available"] = "offline"
 			}
 		}
-		if input.OffDelay != nil {
-			config["off_delay"] = *input.OffDelay
+		
+		// Only add binary sensor specific fields for binary sensors
+		if config.IsBinarySensor(input.SensorType) {
+			if input.OffDelay != nil {
+				discoveryConfig["off_delay"] = *input.OffDelay
+			}
+			if input.ExpireAfter != nil {
+				discoveryConfig["expire_after"] = *input.ExpireAfter
+			}
 		}
-		if input.ExpireAfter != nil {
-			config["expire_after"] = *input.ExpireAfter
-		}
+		
 		if input.JSONAttributesTopic != "" {
-			config["json_attributes_topic"] = input.JSONAttributesTopic
+			discoveryConfig["json_attributes_topic"] = input.JSONAttributesTopic
 		}
 		if input.JSONAttributesTemplate != "" {
-			config["json_attributes_template"] = input.JSONAttributesTemplate
+			discoveryConfig["json_attributes_template"] = input.JSONAttributesTemplate
 		}
-		if input.ValueTemplate != "" {
-			config["value_template"] = input.ValueTemplate
-		}
+		// Note: ValueTemplate is already handled above for sensors
 
-		configJSON, err := json.Marshal(config)
+		configJSON, err := json.Marshal(discoveryConfig)
 		if err != nil {
 			return fmt.Errorf("failed to marshal input config: %w", err)
 		}
@@ -524,18 +591,21 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 			return fmt.Errorf("failed to publish input discovery: %w", err)
 		}
 
-		// Publish initial state for inputs if no state already exists
-		compositeKey := fmt.Sprintf("%s_%s", device.ID, input.ID)
-		if existingState, exists := c.GetState(compositeKey); !exists {
-			initialState := "0" // Default input state is "off"
-			c.SetState(compositeKey, initialState)
-			if err := c.PublishInputState(device, input, initialState); err != nil {
-				return fmt.Errorf("failed to publish initial input state: %w", err)
+		// Publish initial state for binary sensors only
+		if config.IsBinarySensor(input.SensorType) {
+			compositeKey := fmt.Sprintf("%s_%s", device.ID, input.ID)
+			if existingState, exists := c.GetState(compositeKey); !exists {
+				initialState := "0" // Default input state is "off"
+				c.SetState(compositeKey, initialState)
+				if err := c.PublishInputState(device, input, initialState); err != nil {
+					return fmt.Errorf("failed to publish initial input state: %w", err)
+				}
+				c.logger.Info("Published initial input state", "input", input.ID, "state", initialState)
+			} else {
+				c.logger.Info("Using existing input state", "input", input.ID, "state", existingState)
 			}
-			c.logger.Info("Published initial input state", "input", input.ID, "state", initialState)
-		} else {
-			c.logger.Info("Using existing input state", "input", input.ID, "state", existingState)
 		}
+		// For numeric sensors, we don't publish initial states as they should come from the MySensors device
 	}
 
 	return nil
