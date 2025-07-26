@@ -553,3 +553,20 @@ func (c *Client) PublishAdapterStatus(topicPrefix string, nodeIDs []int) error {
 
 	return c.Publish(topic, nodeIDList, true)
 }
+
+func (c *Client) PublishGatewayAdapterStatus(topicPrefix, gatewayName string, nodeIDs []int) error {
+	// Sort node IDs before publishing
+	sortedNodeIDs := make([]int, len(nodeIDs))
+	copy(sortedNodeIDs, nodeIDs)
+	sort.Ints(sortedNodeIDs)
+
+	nodeIDStrs := make([]string, len(sortedNodeIDs))
+	for i, id := range sortedNodeIDs {
+		nodeIDStrs[i] = strconv.Itoa(id)
+	}
+
+	nodeIDList := strings.Join(nodeIDStrs, ",")
+	topic := fmt.Sprintf("%s/gateway/%s/seen_nodes", topicPrefix, gatewayName)
+
+	return c.Publish(topic, nodeIDList, true)
+}

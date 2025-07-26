@@ -190,8 +190,8 @@ func (app *Application) initializeGateways() error {
 	app.gateways = make(map[string]*gateway.Gateway)
 	
 	for gatewayName, gatewayConfig := range app.config.MySensors {
-		gTransport := app.transports[gatewayName]
-		if gTransport == nil {
+		gatewayTransport := app.transports[gatewayName]
+		if gatewayTransport == nil {
 			return fmt.Errorf("no transport found for gateway %s", gatewayName)
 		}
 		
@@ -202,7 +202,7 @@ func (app *Application) initializeGateways() error {
 			RandomIDAssignment:     gatewayConfig.Gateway.RandomIDAssignment,
 		}
 		
-		app.gateways[gatewayName] = gateway.NewGateway(gatewayConf, gTransport, app.logger)
+		app.gateways[gatewayName] = gateway.NewGateway(gatewayConf, gatewayTransport, app.logger)
 	}
 	return nil
 }
@@ -219,8 +219,8 @@ func (app *Application) initializeSyncManager() error {
 
 func (app *Application) start(ctx context.Context) error {
 	// Connect all transports
-	for gatewayName, gTransport := range app.transports {
-		if err := gTransport.Connect(ctx); err != nil {
+	for gatewayName, gatewayTransport := range app.transports {
+		if err := gatewayTransport.Connect(ctx); err != nil {
 			return fmt.Errorf("failed to connect transport for gateway %s: %w", gatewayName, err)
 		}
 	}
@@ -251,21 +251,31 @@ func (app *Application) publishDiscovery() error {
 		app.logger.Info("Published Home Assistant discovery", "device", device.Name)
 	}
 
-	// Collect seen nodes from all gateways
+	// Publish seen nodes for each gateway separately and combined
 	allSeenNodesMap := make(map[int]bool)
-	for _, gateway := range app.gateways {
+	for gatewayName, gateway := range app.gateways {
 		seenNodes := gateway.GetSeenNodes()
+		
+		// Convert map to slice for this gateway
+		var gatewaySeenNodes []int
 		for nodeID := range seenNodes {
+			gatewaySeenNodes = append(gatewaySeenNodes, nodeID)
 			allSeenNodesMap[nodeID] = true
+		}
+		
+		// Publish gateway-specific seen nodes
+		if err := app.mqttClient.PublishGatewayAdapterStatus(app.config.AdapterTopics.TopicPrefix, gatewayName, gatewaySeenNodes); err != nil {
+			return fmt.Errorf("failed to publish gateway adapter status for %s: %w", gatewayName, err)
 		}
 	}
 	
-	// Convert map to slice
+	// Convert combined map to slice
 	var allSeenNodes []int
 	for nodeID := range allSeenNodesMap {
 		allSeenNodes = append(allSeenNodes, nodeID)
 	}
 	
+	// Publish combined seen nodes
 	if err := app.mqttClient.PublishAdapterStatus(app.config.AdapterTopics.TopicPrefix, allSeenNodes); err != nil {
 		return fmt.Errorf("failed to publish adapter status: %w", err)
 	}
@@ -275,7 +285,7 @@ func (app *Application) publishDiscovery() error {
 
 func (app *Application) handleMySensorsMessages() {
 	// Start a goroutine for each transport
-	for gatewayName, gTransport := range app.transports {
+	for gatewayName, gatewayTransport := range app.transports {
 		go func(gName string, t transport.Transport) {
 			for message := range t.Receive() {
 				app.logger.Debug("Received MySensors message", "gateway", gName, "message", message.String())
@@ -294,7 +304,23 @@ func (app *Application) handleMySensorsMessages() {
 
 				app.handleDeviceMessage(message)
 
-				// Update adapter status with all seen nodes
+				// Publish gateway-specific status and combined status
+				if gateway, exists := app.gateways[gName]; exists {
+					seenNodes := gateway.GetSeenNodes()
+					
+					// Convert map to slice for this gateway
+					var gatewaySeenNodes []int
+					for nodeID := range seenNodes {
+						gatewaySeenNodes = append(gatewaySeenNodes, nodeID)
+					}
+					
+					// Publish gateway-specific seen nodes
+					if err := app.mqttClient.PublishGatewayAdapterStatus(app.config.AdapterTopics.TopicPrefix, gName, gatewaySeenNodes); err != nil {
+						app.logger.Error("Failed to publish gateway adapter status", "gateway", gName, "error", err)
+					}
+				}
+
+				// Update combined adapter status with all seen nodes
 				allSeenNodesMap := make(map[int]bool)
 				for _, gw := range app.gateways {
 					seenNodes := gw.GetSeenNodes()
@@ -313,7 +339,7 @@ func (app *Application) handleMySensorsMessages() {
 					app.logger.Error("Failed to publish adapter status", "error", err)
 				}
 			}
-		}(gatewayName, gTransport)
+		}(gatewayName, gatewayTransport)
 	}
 }
 
@@ -322,8 +348,8 @@ func (app *Application) handleTCPMessages() {
 	for gatewayName, tcpServer := range app.tcpServers {
 		go func(gName string, server *tcp.Server) {
 			for message := range server.Receive() {
-				if gTransport, exists := app.transports[gName]; exists {
-					if err := gTransport.Send(message); err != nil {
+				if gatewayTransport, exists := app.transports[gName]; exists {
+					if err := gatewayTransport.Send(message); err != nil {
 						app.logger.Error("Failed to forward TCP message to MySensors", "gateway", gName, "error", err, "message", message.String())
 					}
 				}
@@ -355,7 +381,7 @@ func (app *Application) handleMQTTStateChanges() {
 					gatewayName = currentDevice.Gateway
 				}
 				
-				gTransport, exists := app.transports[gatewayName]
+				gatewayTransport, exists := app.transports[gatewayName]
 				if !exists {
 					app.logger.Error("No transport found for gateway", "gateway", gatewayName, "device", deviceName)
 					return
@@ -364,7 +390,7 @@ func (app *Application) handleMQTTStateChanges() {
 				// Use configured ACK bit setting (default true to encourage device echoing)
 				requestAck := app.config.AdapterTopics.RequestAck != nil && *app.config.AdapterTopics.RequestAck
 				message := mysensors.NewSetMessageWithAck(nodeID, currentRelay.ChildID, mysensors.V_STATUS, mysensorsState, requestAck)
-				if err := gTransport.Send(message); err != nil {
+				if err := gatewayTransport.Send(message); err != nil {
 					app.logger.Error("Failed to send state change to MySensors", "gateway", gatewayName, "error", err,
 						"device", deviceName, "component", componentName, "state", state)
 				} else {
@@ -490,9 +516,9 @@ func (app *Application) shutdown() error {
 	}
 
 	// Disconnect all transports
-	for gatewayName, gTransport := range app.transports {
+	for gatewayName, gatewayTransport := range app.transports {
 		app.logger.Debug("Disconnecting transport", "gateway", gatewayName)
-		gTransport.Disconnect()
+		gatewayTransport.Disconnect()
 	}
 
 	return nil
