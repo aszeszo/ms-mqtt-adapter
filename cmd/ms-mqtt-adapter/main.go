@@ -117,7 +117,7 @@ func (app *Application) Run(ctx context.Context) error {
 	}
 
 	// Perform initial sync if sync is enabled
-	if app.config.Sync.Enabled {
+	if app.config.AdapterTopics.Sync.Enabled {
 		app.logger.Info("Performing initial device state sync")
 		app.syncMgr.SyncDeviceStates()
 	}

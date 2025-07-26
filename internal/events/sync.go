@@ -30,7 +30,7 @@ func NewSyncManager(cfg *config.Config, mqttClient *mqtt.Client, transport trans
 }
 
 func (sm *SyncManager) Start(ctx context.Context) error {
-	if !sm.config.Sync.Enabled {
+	if !sm.config.AdapterTopics.Sync.Enabled {
 		sm.logger.Info("Periodic sync disabled")
 		return nil
 	}
@@ -38,7 +38,7 @@ func (sm *SyncManager) Start(ctx context.Context) error {
 	sm.ctx, sm.cancel = context.WithCancel(ctx)
 
 	go sm.syncLoop()
-	sm.logger.Info("Sync manager started", "period", sm.config.Sync.Period)
+	sm.logger.Info("Sync manager started", "period", sm.config.AdapterTopics.Sync.Period)
 	return nil
 }
 
@@ -50,7 +50,7 @@ func (sm *SyncManager) Stop() {
 }
 
 func (sm *SyncManager) syncLoop() {
-	ticker := time.NewTicker(sm.config.Sync.Period)
+	ticker := time.NewTicker(sm.config.AdapterTopics.Sync.Period)
 	defer ticker.Stop()
 
 	sm.performSync()

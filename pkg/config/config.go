@@ -12,7 +12,6 @@ type Config struct {
 	LogLevel      string                     `yaml:"log_level"`
 	MySensors     map[string]MySensorsConfig `yaml:"mysensors"`
 	MQTT          MQTTConfig                 `yaml:"mqtt"`
-	Sync          SyncConfig                 `yaml:"sync"`
 	AdapterTopics AdapterConfig             `yaml:"adapter"`
 	Devices       []Device                   `yaml:"devices"`
 }
@@ -58,10 +57,11 @@ type GatewayConfig struct {
 }
 
 type AdapterConfig struct {
-	TopicPrefix            string `yaml:"topic_prefix"`
-	HomeAssistantDiscovery *bool  `yaml:"homeassistant_discovery,omitempty"`
-	OptimisticMode         *bool  `yaml:"optimistic_mode,omitempty"`
-	RequestAck             *bool  `yaml:"request_ack,omitempty"`
+	TopicPrefix            string     `yaml:"topic_prefix"`
+	HomeAssistantDiscovery *bool      `yaml:"homeassistant_discovery,omitempty"`
+	OptimisticMode         *bool      `yaml:"optimistic_mode,omitempty"`
+	RequestAck             *bool      `yaml:"request_ack,omitempty"`
+	Sync                   SyncConfig `yaml:"sync"`
 }
 
 type Device struct {
@@ -267,8 +267,8 @@ func setDefaults(config *Config) {
 		config.MQTT.ClientID = "ms-mqtt-adapter"
 	}
 
-	if config.Sync.Period == 0 {
-		config.Sync.Period = 30 * time.Second
+	if config.AdapterTopics.Sync.Period == 0 {
+		config.AdapterTopics.Sync.Period = 30 * time.Second
 	}
 
 	// Set defaults for all MySensors gateways

@@ -39,15 +39,14 @@ mqtt:
   password: "nippy"
   client_id: "ms-mqtt-adapter"
 
-sync:
-  enabled: true
-  period: "30s"
-
 adapter:
   topic_prefix: "ms-mqtt-adapter"
   homeassistant_discovery: true  # Enable/disable HomeAssistant auto-discovery
   optimistic_mode: false
   request_ack: true  # Request ACK bit to encourage device echoing (default: true)
+  sync:
+    enabled: true
+    period: "30s"
 
 devices:
   - name: "Relay 3 #1"

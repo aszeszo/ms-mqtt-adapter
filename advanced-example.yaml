@@ -23,15 +23,14 @@ mqtt:
   password: ""
   client_id: "ms-mqtt-adapter"
 
-sync:
-  enabled: true
-  period: "30s"
-
 adapter:
   topic_prefix: "ms-mqtt-adapter"
   homeassistant_discovery: true
   optimistic_mode: false
   request_ack: true
+  sync:
+    enabled: true
+    period: "30s"
 
 devices:
   - name: "Smart Relay Controller"

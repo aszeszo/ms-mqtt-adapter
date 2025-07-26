@@ -21,7 +21,7 @@ jobs:
     strategy:
       matrix:
         #arch: [amd64, aarch64, armhf, armv7, i386]
-        arch: [amd64]
+        arch: [amd64, aarch64]
 
     steps:
       - name: Checkout repository
@@ -98,7 +98,8 @@ jobs:
       - name: Create and push manifest for version tag
         run: |
           docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-amd64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-aarch64
           docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
 
       # - name: Create and push manifest for version tag
