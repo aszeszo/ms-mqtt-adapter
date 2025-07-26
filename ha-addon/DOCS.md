@@ -173,6 +173,76 @@ adapter:
     period: "30s"  # Sync every 30 seconds
 ```
 
+### Outputs
+
+The adapter supports outputs for controlling MySensors devices with different value types. Outputs can be text, numeric, switches, or selectable options:
+
+```yaml
+devices:
+  - name: "Smart Display #1"
+    id: "smart_display_1"
+    node_id: 6
+    manufacturer: "Nippy"
+    model: "Smart Display"
+    sw_version: "1.0"
+    hw_version: "1.0"
+    outputs:
+      # Text output - allows setting arbitrary text messages
+      - name: "Display Message"
+        id: "display_message"
+        child_id: 0
+        output_type: "text"           # Maps to MySensors V_TEXT
+        initial_value: "Hello World"
+        icon: "mdi:message-text"
+        entity_category: "config"
+      
+      # Number output - allows setting numeric values with range
+      - name: "Brightness Level"
+        id: "brightness_level"
+        child_id: 1
+        output_type: "number"         # Maps to MySensors V_PERCENTAGE
+        initial_value: "50"
+        min_value: 0
+        max_value: 100
+        step: 5
+        unit_of_measurement: "%"
+        icon: "mdi:brightness-6"
+        
+      # Select output - allows choosing from predefined options
+      - name: "Display Mode"
+        id: "display_mode"
+        child_id: 2
+        output_type: "select"         # Maps to MySensors V_TEXT
+        initial_value: "normal"
+        options: ["normal", "bright", "dim", "off"]
+        icon: "mdi:monitor"
+        
+      # Switch output - equivalent to relay but using outputs
+      - name: "Backlight Power"
+        id: "backlight_power"
+        child_id: 3
+        output_type: "switch"         # Maps to MySensors V_STATUS
+        initial_value: "1"
+        icon: "mdi:lightbulb"
+```
+
+**Available output types**:
+- **switch**: Binary on/off control (maps to V_STATUS)
+- **light**: Light control (maps to V_STATUS)
+- **dimmer**: Dimmer control with percentage (maps to V_PERCENTAGE)
+- **cover**: Cover/blind control (maps to V_UP/V_DOWN/V_STOP)
+- **text**: Text message control (maps to V_TEXT)
+- **number**: Numeric value control (maps to V_PERCENTAGE)
+- **select**: Selection from predefined options (maps to V_TEXT)
+- **climate**: Climate control (maps to V_HVAC_SETPOINT_HEAT)
+
+**Variable type override**: You can override the default MySensors variable type:
+```yaml
+- name: "Custom Output"
+  output_type: "text"
+  variable_type: "V_CUSTOM"  # Override default V_TEXT
+```
+
 ### Sensor Types
 
 The adapter supports both binary and numeric sensors:

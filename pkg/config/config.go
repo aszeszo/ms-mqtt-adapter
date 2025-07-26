@@ -80,6 +80,7 @@ type Device struct {
 	ViaDevice        string     `yaml:"via_device,omitempty"`
 	RequestAck       *bool      `yaml:"request_ack,omitempty"`
 	Relays           []Relay    `yaml:"relays"`
+	Outputs          []Output   `yaml:"outputs"`
 	Inputs           []Input    `yaml:"inputs"`
 }
 
@@ -108,6 +109,56 @@ type Relay struct {
 	JSONAttributesTemplate string `yaml:"json_attributes_template,omitempty"`
 	StateValueTemplate     string `yaml:"state_value_template,omitempty"`
 	CommandTemplate        string `yaml:"command_template,omitempty"`
+}
+
+type Output struct {
+	Name                   string `yaml:"name"`
+	ID                     string `yaml:"id"`
+	ChildID                int    `yaml:"child_id"`
+	NodeID                 *int   `yaml:"node_id,omitempty"`
+	Gateway                string `yaml:"gateway,omitempty"`
+	
+	// Output type determines the MySensors variable type and Home Assistant entity type
+	OutputType             string `yaml:"output_type,omitempty"`         // "switch", "light", "cover", "text", "number", "select", etc.
+	VariableType           string `yaml:"variable_type,omitempty"`       // MySensors variable type override (e.g., "V_STATUS", "V_TEXT", "V_PERCENTAGE")
+	
+	// Initial and range values
+	InitialValue           string  `yaml:"initial_value,omitempty"`       // Initial value (can be text, number, etc.)
+	MinValue               *float64 `yaml:"min_value,omitempty"`          // For number/range outputs
+	MaxValue               *float64 `yaml:"max_value,omitempty"`          // For number/range outputs
+	Step                   *float64 `yaml:"step,omitempty"`               // For number outputs
+	Options                []string `yaml:"options,omitempty"`            // For select outputs
+	
+	// Home Assistant configuration
+	Icon                   string `yaml:"icon"`
+	DeviceClass            string `yaml:"device_class"`
+	EntityCategory         string `yaml:"entity_category,omitempty"`
+	EnabledByDefault       *bool  `yaml:"enabled_by_default,omitempty"`
+	UnitOfMeasurement      string `yaml:"unit_of_measurement,omitempty"`
+	
+	// MQTT configuration (all optional)
+	AvailabilityTopic      string `yaml:"availability_topic,omitempty"`
+	PayloadAvailable       string `yaml:"payload_available,omitempty"`
+	PayloadNotAvailable    string `yaml:"payload_not_available,omitempty"`
+	PayloadOn              string `yaml:"payload_on,omitempty"`           // For switch/light outputs
+	PayloadOff             string `yaml:"payload_off,omitempty"`          // For switch/light outputs
+	StateOn                string `yaml:"state_on,omitempty"`             // For switch/light outputs
+	StateOff               string `yaml:"state_off,omitempty"`            // For switch/light outputs
+	PayloadOpen            string `yaml:"payload_open,omitempty"`         // For cover outputs
+	PayloadClose           string `yaml:"payload_close,omitempty"`        // For cover outputs
+	PayloadStop            string `yaml:"payload_stop,omitempty"`         // For cover outputs
+	StateOpen              string `yaml:"state_open,omitempty"`           // For cover outputs
+	StateClosed            string `yaml:"state_closed,omitempty"`         // For cover outputs
+	QOS                    *int   `yaml:"qos,omitempty"`
+	Retain                 *bool  `yaml:"retain,omitempty"`
+	Optimistic             *bool  `yaml:"optimistic,omitempty"`
+	
+	// MQTT template configuration (optional)
+	JSONAttributesTopic    string `yaml:"json_attributes_topic,omitempty"`
+	JSONAttributesTemplate string `yaml:"json_attributes_template,omitempty"`
+	StateValueTemplate     string `yaml:"state_value_template,omitempty"`
+	CommandTemplate        string `yaml:"command_template,omitempty"`
+	ValueTemplate          string `yaml:"value_template,omitempty"`
 }
 
 type Input struct {
@@ -217,12 +268,24 @@ func validateConfig(config *Config) error {
 			relayName := fmt.Sprintf("%s:%s", device.Name, relay.Name)
 			relayTargets[target] = append(relayTargets[target], relayName)
 		}
+		
+		// Also validate outputs
+		for _, output := range device.Outputs {
+			effectiveNodeID := device.NodeID
+			if output.NodeID != nil {
+				effectiveNodeID = *output.NodeID
+			}
+
+			target := fmt.Sprintf("%d:%d", effectiveNodeID, output.ChildID)
+			outputName := fmt.Sprintf("%s:%s", device.Name, output.Name)
+			relayTargets[target] = append(relayTargets[target], outputName)
+		}
 	}
 
-	// Check for duplicate relay targets
-	for target, relays := range relayTargets {
-		if len(relays) > 1 {
-			return fmt.Errorf("duplicate relay mapping detected for MySensors target %s: %v - relays must have unique node_id:child_id combinations", target, relays)
+	// Check for duplicate targets (relays and outputs combined)
+	for target, names := range relayTargets {
+		if len(names) > 1 {
+			return fmt.Errorf("duplicate mapping detected for MySensors target %s: %v - relays and outputs must have unique node_id:child_id combinations", target, names)
 		}
 	}
 
@@ -343,6 +406,73 @@ func IsBinarySensor(sensorType string) bool {
 	return sensorType == "binary" || sensorType == ""
 }
 
+// GetMySensorsVariableTypeForOutput returns the MySensors variable type for an output type
+func GetMySensorsVariableTypeForOutput(outputType, variableTypeOverride string) (mysensors.VariableType, bool) {
+	// If variable type is explicitly specified, use it
+	if variableTypeOverride != "" {
+		mapping := map[string]mysensors.VariableType{
+			"V_STATUS":             mysensors.V_STATUS,
+			"V_PERCENTAGE":         mysensors.V_PERCENTAGE,
+			"V_TEXT":               mysensors.V_TEXT,
+			"V_TEMP":               mysensors.V_TEMP,
+			"V_HUM":                mysensors.V_HUM,
+			"V_PRESSURE":           mysensors.V_PRESSURE,
+			"V_VOLTAGE":            mysensors.V_VOLTAGE,
+			"V_CURRENT":            mysensors.V_CURRENT,
+			"V_LEVEL":              mysensors.V_LEVEL,
+			"V_WATT":               mysensors.V_WATT,
+			"V_KWH":                mysensors.V_KWH,
+			"V_DISTANCE":           mysensors.V_DISTANCE,
+			"V_WEIGHT":             mysensors.V_WEIGHT,
+			"V_LIGHT_LEVEL":        mysensors.V_LIGHT_LEVEL,
+			"V_FLOW":               mysensors.V_FLOW,
+			"V_VOLUME":             mysensors.V_VOLUME,
+			"V_UP":                 mysensors.V_UP,
+			"V_DOWN":               mysensors.V_DOWN,
+			"V_STOP":               mysensors.V_STOP,
+			"V_RGB":                mysensors.V_RGB,
+			"V_RGBW":               mysensors.V_RGBW,
+			"V_HVAC_SETPOINT_HEAT": mysensors.V_HVAC_SETPOINT_HEAT,
+			"V_HVAC_SETPOINT_COOL": mysensors.V_HVAC_SETPOINT_COOL,
+			"V_HVAC_FLOW_MODE":     mysensors.V_HVAC_FLOW_MODE,
+			"V_CUSTOM":             mysensors.V_CUSTOM,
+			"V_POSITION":           mysensors.V_POSITION,
+			"V_IR_SEND":            mysensors.V_IR_SEND,
+			"V_PH":                 mysensors.V_PH,
+			"V_ORP":                mysensors.V_ORP,
+			"V_EC":                 mysensors.V_EC,
+			"V_VAR":                mysensors.V_VAR,
+			"V_VA":                 mysensors.V_VA,
+			"V_POWER_FACTOR":       mysensors.V_POWER_FACTOR,
+		}
+		
+		if varType, exists := mapping[variableTypeOverride]; exists {
+			return varType, true
+		}
+	}
+	
+	// Default mappings based on output type
+	defaultMapping := map[string]mysensors.VariableType{
+		"switch":      mysensors.V_STATUS,
+		"light":       mysensors.V_STATUS,
+		"dimmer":      mysensors.V_PERCENTAGE,
+		"cover":       mysensors.V_UP, // Cover uses V_UP/V_DOWN/V_STOP
+		"text":        mysensors.V_TEXT,
+		"number":      mysensors.V_PERCENTAGE,
+		"select":      mysensors.V_TEXT,
+		"climate":     mysensors.V_HVAC_SETPOINT_HEAT,
+		"rgb_light":   mysensors.V_RGB,
+		"rgbw_light":  mysensors.V_RGBW,
+	}
+	
+	if varType, exists := defaultMapping[outputType]; exists {
+		return varType, true
+	}
+	
+	// Default to V_STATUS for unknown types
+	return mysensors.V_STATUS, false
+}
+
 func setDefaults(config *Config) {
 	if config.LogLevel == "" {
 		config.LogLevel = "info"
@@ -435,9 +565,25 @@ func setDefaults(config *Config) {
 	}
 
 	for i := range config.Devices {
+		// Set defaults for relays
 		for j := range config.Devices[i].Relays {
 			if config.Devices[i].Relays[j].InitialState == 0 {
 				config.Devices[i].Relays[j].InitialState = 0
+			}
+		}
+		
+		// Set defaults for outputs
+		for j := range config.Devices[i].Outputs {
+			output := &config.Devices[i].Outputs[j]
+			
+			// Default output type to switch for backward compatibility
+			if output.OutputType == "" {
+				output.OutputType = "switch"
+			}
+			
+			// Default initial value to "0" (OFF) for switch outputs
+			if output.InitialValue == "" && output.OutputType == "switch" {
+				output.InitialValue = "0"
 			}
 		}
 
