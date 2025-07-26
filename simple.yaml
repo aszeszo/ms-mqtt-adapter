@@ -2,9 +2,12 @@ mysensors:
   default:
     ethernet:
       host: "172.30.15.1"
+    tcp_service:
+      enabled: true
+      port: 5003
 
 mqtt:
-  broker: "core-mosquitto"
+  broker: "192.168.122.160"
   username: "nippy"
   password: "nippy"
 
