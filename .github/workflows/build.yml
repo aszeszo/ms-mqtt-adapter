@@ -20,11 +20,18 @@ jobs:
       packages: write
     strategy:
       matrix:
-        arch: [amd64, aarch64, armhf, armv7, i386]
+        #arch: [amd64, aarch64, armhf, armv7, i386]
+        arch: [amd64]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Get version from ha-addon config
+        id: version
+        run: |
+          VERSION=$(grep '^version:' ha-addon/config.yaml | sed 's/version: *"\([^"]*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -53,10 +60,13 @@ jobs:
           context: .
           platforms: ${{ steps.platform.outputs.platform }}
           push: true
+          provenance: false
+          sbom: false
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
+            VERSION=${{ steps.version.outputs.version }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-${{ matrix.arch }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-${{ matrix.arch }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-${{ matrix.arch }}
           cache-from: type=gha,scope=${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
@@ -69,6 +79,15 @@ jobs:
       packages: write
     
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from ha-addon config
+        id: version
+        run: |
+          VERSION=$(grep '^version:' ha-addon/config.yaml | sed 's/version: *"\([^"]*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
@@ -78,13 +97,13 @@ jobs:
 
       - name: Create and push manifest for version tag
         run: |
-          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-amd64 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-aarch64 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-armhf \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-armv7 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2-i386
-          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:2.0.2
+          docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-aarch64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armhf \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armv7 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-i386
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
 
       - name: Create and push manifest for latest tag
         run: |

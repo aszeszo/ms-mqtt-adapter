@@ -1,4 +1,5 @@
 ARG BUILD_FROM
+ARG VERSION
 FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
@@ -27,6 +28,6 @@ LABEL \
     io.hass.description="Bridge between MySensors networks and MQTT with Home Assistant auto-discovery" \
     io.hass.arch="amd64|aarch64|armhf|armv7|i386" \
     io.hass.type="addon" \
-    io.hass.version="2.0.2"
+    io.hass.version="$VERSION"
 
 CMD ["/run.sh"]
