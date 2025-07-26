@@ -13,8 +13,6 @@ startup: services
 boot: auto
 init: false
 image: ghcr.io/aszeszo/ms-mqtt-adapter
-map:
-  - config
 ports:
   5003/tcp: 5003
   5004/tcp: 5004
@@ -25,7 +23,6 @@ ports_description:
   5004/tcp: TCP service for MySensors message replication (gateway 2)
   5005/tcp: TCP service for MySensors message replication (gateway 3)
   5006/tcp: TCP service for MySensors message replication (gateway 4)
+schema: false
 options:
   log_level: info
-schema:
-  log_level: list(trace|debug|info|notice|warning|error|fatal)?
