@@ -163,8 +163,9 @@ func validateConfig(config *Config) error {
 	
 	// Validate each MySensors gateway configuration
 	for gatewayName, mysensorsConfig := range config.MySensors {
-		if mysensorsConfig.Transport == "" {
-			return fmt.Errorf("mysensors gateway '%s' transport is required", gatewayName)
+		// Transport will be set to default "ethernet" in setDefaults if not specified
+		if mysensorsConfig.Transport != "" && mysensorsConfig.Transport != "ethernet" && mysensorsConfig.Transport != "rs485" {
+			return fmt.Errorf("mysensors gateway '%s' transport must be 'ethernet' or 'rs485'", gatewayName)
 		}
 
 		if mysensorsConfig.Transport == "ethernet" {
@@ -239,6 +240,14 @@ func setDefaults(config *Config) {
 	// Ensure MySensors map is initialized
 	if config.MySensors == nil {
 		config.MySensors = make(map[string]MySensorsConfig)
+	}
+
+	// Set default transport type to "ethernet" if not specified
+	for gatewayName, gatewayConfig := range config.MySensors {
+		if gatewayConfig.Transport == "" {
+			gatewayConfig.Transport = "ethernet"
+			config.MySensors[gatewayName] = gatewayConfig
+		}
 	}
 
 	// If there's no "default" gateway but only one gateway, rename it to "default"
