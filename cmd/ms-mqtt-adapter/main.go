@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -38,7 +39,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "2.2.4")
+	logger.Info("Starting ms-mqtt-adapter", "version", "2.2.5")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -1133,12 +1134,15 @@ func (app *Application) startConfigWatcher(configFile string) error {
 	}
 	app.watcher = watcher
 
-	// Add config file to watcher
-	if err := watcher.Add(configFile); err != nil {
-		return fmt.Errorf("failed to add config file to watcher: %w", err)
+	// Watch the DIRECTORY, not the file. Atomic writes (write-to-temp + rename)
+	// replace the file inode, which breaks file-level inotify watches.
+	// Watching the directory ensures we see Create events from renames.
+	configDir := filepath.Dir(configFile)
+	if err := watcher.Add(configDir); err != nil {
+		return fmt.Errorf("failed to add config directory to watcher: %w", err)
 	}
 
-	app.logger.Info("Config watcher started", "file", configFile)
+	app.logger.Info("Config watcher started", "file", configFile, "watching_dir", configDir)
 	return nil
 }
 
@@ -1147,18 +1151,33 @@ func (app *Application) handleConfigReloads(ctx context.Context) {
 		return
 	}
 
+	configBase := filepath.Base(app.configPath)
+	var debounceTimer *time.Timer
+
 	for {
 		select {
 		case <-ctx.Done():
 			app.watcher.Close()
 			return
 		case event := <-app.watcher.Events:
-			if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Create == fsnotify.Create {
-				app.logger.Info("Config file changed, reloading", "file", event.Name)
-				if err := app.reloadConfig(event.Name); err != nil {
+			// Only react to changes to the config file itself
+			if filepath.Base(event.Name) != configBase {
+				continue
+			}
+			if event.Op&(fsnotify.Write|fsnotify.Create) == 0 {
+				continue
+			}
+			// Debounce: atomic writes generate multiple events (Create from rename).
+			// Wait briefly to coalesce into a single reload.
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+			debounceTimer = time.AfterFunc(200*time.Millisecond, func() {
+				app.logger.Info("Config file changed, reloading", "file", app.configPath)
+				if err := app.reloadConfig(app.configPath); err != nil {
 					app.logger.Error("Failed to reload config", "error", err)
 				}
-			}
+			})
 		case err := <-app.watcher.Errors:
 			app.logger.Error("Config watcher error", "error", err)
 		}

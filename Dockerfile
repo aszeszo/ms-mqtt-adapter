@@ -1,5 +1,5 @@
-ARG BUILD_FROM
-ARG VERSION
+ARG BUILD_FROM=alpine:3.19
+ARG VERSION=dev
 
 # ── Local path: build frontend from source ──────────────────────────────────
 
