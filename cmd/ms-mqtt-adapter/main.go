@@ -38,7 +38,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "2.2.2")
+	logger.Info("Starting ms-mqtt-adapter", "version", "2.2.3")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -627,94 +627,86 @@ func (app *Application) publishDiscovery() error {
 	return nil
 }
 
+// startTransportMessageHandler starts the message handler for a single transport
+func (app *Application) startTransportMessageHandler(gatewayName string, t transport.Transport) {
+	go func(gName string, trans transport.Transport) {
+		for message := range trans.Receive() {
+			app.logger.Info("Received MySensors message", "gateway", gName, "message", message.String())
+			app.logger.Debug("MySensors message details", "gateway", gName,
+				"node_id", message.NodeID, "child_id", message.ChildID, "msg_type", message.MessageType,
+				"is_set", message.IsSet(), "is_req", message.IsReq(), "is_internal", message.IsInternal(), "var_type", message.GetVariableType())
+
+			// Broadcast MySensors message for traffic monitoring
+			app.publishMySensorsTraffic(gName, "rx", message)
+
+			// Broadcast to corresponding TCP server
+			if tcpServer, exists := app.tcpServers[gName]; exists {
+				tcpServer.BroadcastMessage(message)
+			}
+
+			// Handle the message with the appropriate gateway
+			if gateway, exists := app.gateways[gName]; exists {
+				if err := gateway.HandleMessage(message); err != nil {
+					app.logger.Error("Gateway message handling failed", "gateway", gName, "error", err, "message", message.String())
+				}
+			}
+
+			// Check for ACK responses
+			app.checkForAckResponse(message)
+
+			// Handle device-specific message processing (state updates, etc.)
+			app.handleDeviceMessage(message)
+
+			// Publish gateway-specific status only (no global tracking)
+			if gateway, exists := app.gateways[gName]; exists {
+				gatewaySeenNodes := gateway.GetSeenNodes() // Already returns []int
+
+				// Publish gateway-specific seen nodes
+				if err := app.mqttClient.PublishGatewayAdapterStatus(app.config.AdapterTopics.TopicPrefix, gName, gatewaySeenNodes); err != nil {
+					app.logger.Error("Failed to publish gateway adapter status", "gateway", gName, "error", err)
+				}
+			}
+		}
+	}(gatewayName, t)
+}
+
 func (app *Application) handleMySensorsMessages() {
 	// Start a goroutine for each transport
 	for gatewayName, gatewayTransport := range app.transports {
-		go func(gName string, t transport.Transport) {
-			for message := range t.Receive() {
-				app.logger.Info("Received MySensors message", "gateway", gName, "message", message.String())
-				app.logger.Debug("MySensors message details", "gateway", gName,
-					"node_id", message.NodeID, "child_id", message.ChildID, "msg_type", message.MessageType,
-					"is_set", message.IsSet(), "is_req", message.IsReq(), "is_internal", message.IsInternal(), "var_type", message.GetVariableType())
+		app.startTransportMessageHandler(gatewayName, gatewayTransport)
+	}
+}
 
-				// Broadcast MySensors message for traffic monitoring
-				app.publishMySensorsTraffic(gName, "rx", message)
+// startTCPMessageHandler starts the message handler for a single TCP server
+func (app *Application) startTCPMessageHandler(gatewayName string, server *tcp.Server) {
+	go func(gName string, tcpServer *tcp.Server) {
+		for message := range tcpServer.Receive() {
+			app.logger.Info("Received message from TCP client", "gateway", gName, "message", message.String())
 
-				// Broadcast to corresponding TCP server
-				if tcpServer, exists := app.tcpServers[gName]; exists {
-					tcpServer.BroadcastMessage(message)
-				}
-
-				// Handle message with corresponding gateway
-				if gateway, exists := app.gateways[gName]; exists {
-					if err := gateway.HandleMessage(message); err != nil {
-						app.logger.Error("Gateway message handling failed", "gateway", gName, "error", err, "message", message.String())
-					}
-					
-					// Log availability-related messages
-					if message.IsInternal() {
-						internalType := message.GetInternalType()
-						if internalType == mysensors.I_TIME || internalType == mysensors.I_DISCOVER_RESPONSE {
-							app.logger.Debug("Node availability message received", "gateway", gName, "node_id", message.NodeID, "message_type", internalType)
-						}
-					}
-				}
-
-				// Check if this message is an ACK response for a pending request
-				app.checkForAckResponse(message)
-
-				app.handleDeviceMessage(message)
-
-				// Handle presentation messages for deduplication tracking
-				if message.IsPresentation() {
-					sensorType := message.GetSensorType()
-					description := message.Payload
-					if err := app.mqttClient.PublishPresentationMessage(app.config.AdapterTopics.TopicPrefix, gName, message.NodeID, message.ChildID, fmt.Sprintf("S_%d", int(sensorType)), description); err != nil {
-						app.logger.Error("Failed to publish presentation message", "gateway", gName, "error", err, "node_id", message.NodeID, "child_id", message.ChildID)
-					} else {
-						app.logger.Debug("Published presentation message", "gateway", gName, "node_id", message.NodeID, "child_id", message.ChildID, "sensor_type", sensorType, "description", description)
-					}
-				}
-
-				// Publish gateway-specific status only (no global tracking)
-				if gateway, exists := app.gateways[gName]; exists {
-					gatewaySeenNodes := gateway.GetSeenNodes() // Already returns []int
-
-					// Publish gateway-specific seen nodes
-					if err := app.mqttClient.PublishGatewayAdapterStatus(app.config.AdapterTopics.TopicPrefix, gName, gatewaySeenNodes); err != nil {
-						app.logger.Error("Failed to publish gateway adapter status", "gateway", gName, "error", err)
-					}
+			// Forward to MySensors gateway
+			if gatewayTransport, exists := app.transports[gName]; exists {
+				if err := gatewayTransport.Send(message); err != nil {
+					app.logger.Error("Failed to forward TCP message to MySensors", "gateway", gName, "error", err, "message", message.String())
 				}
 			}
-		}(gatewayName, gatewayTransport)
-	}
+
+			// Also process locally as if it came from a device (for testing/simulation)
+			// This allows injecting messages via TCP to update MQTT state
+			if gateway, exists := app.gateways[gName]; exists {
+				if err := gateway.HandleMessage(message); err != nil {
+					app.logger.Error("Gateway message handling failed for TCP message", "gateway", gName, "error", err, "message", message.String())
+				}
+			}
+			app.checkForAckResponse(message)
+			app.handleDeviceMessage(message)
+		}
+	}(gatewayName, server)
 }
 
 func (app *Application) handleTCPMessages() {
 	// Start a goroutine for each TCP server
 	for gatewayName, tcpServer := range app.tcpServers {
-		go func(gName string, server *tcp.Server) {
-			for message := range server.Receive() {
-				app.logger.Info("Received message from TCP client", "gateway", gName, "message", message.String())
-
-				// Forward to MySensors gateway
-				if gatewayTransport, exists := app.transports[gName]; exists {
-					if err := gatewayTransport.Send(message); err != nil {
-						app.logger.Error("Failed to forward TCP message to MySensors", "gateway", gName, "error", err, "message", message.String())
-					}
-				}
-
-				// Also process locally as if it came from a device (for testing/simulation)
-				// This allows injecting messages via TCP to update MQTT state
-				if gateway, exists := app.gateways[gName]; exists {
-					if err := gateway.HandleMessage(message); err != nil {
-						app.logger.Error("Gateway message handling failed for TCP message", "gateway", gName, "error", err, "message", message.String())
-					}
-				}
-				app.checkForAckResponse(message)
-				app.handleDeviceMessage(message)
-			}
-		}(gatewayName, tcpServer)
+		app.startTCPMessageHandler(gatewayName, tcpServer)
 	}
 }
 
@@ -1174,6 +1166,16 @@ func (app *Application) reloadConfig(configFile string) error {
 		return fmt.Errorf("failed to load new config: %w", err)
 	}
 
+	// Check if config was previously incomplete
+	oldConfigIncomplete := len(app.config.MySensors) == 0 || app.config.MQTT.Broker == ""
+	newConfigComplete := len(newConfig.MySensors) > 0 && newConfig.MQTT.Broker != ""
+
+	// Update log level if changed
+	if app.config.LogLevel != newConfig.LogLevel {
+		app.logger.Info("Updating log level", "old", app.config.LogLevel, "new", newConfig.LogLevel)
+		app.logBroadcast.SetLogLevel(newConfig.LogLevel)
+	}
+
 	// Update application config
 	app.config = newConfig
 
@@ -1182,29 +1184,94 @@ func (app *Application) reloadConfig(configFile string) error {
 		return fmt.Errorf("failed to reconfigure MQTT client: %w", err)
 	}
 
+	// If config transitioned from incomplete to complete, start connections and monitoring
+	if oldConfigIncomplete && newConfigComplete {
+		if !app.mqttClient.IsConnected() {
+			app.logger.Info("Config now complete, connecting MQTT client with retry...")
+			go func() {
+				err := app.retryWithBackoff(app.ctx, "MQTT connection", -1, func() error {
+					return app.mqttClient.Connect(app.ctx)
+				})
+				if err != nil {
+					app.logger.Error("Failed to connect MQTT after config reload", "error", err)
+				} else {
+					app.logger.Info("MQTT connected successfully after config reload")
+					if app.eventBus != nil {
+						app.eventBus.Publish(api.Event{
+							Type: api.EventConnectionChanged,
+							Data: map[string]any{"type": "mqtt", "connected": true},
+						})
+					}
+					// Publish discovery now that MQTT is connected
+					if err := app.publishDiscovery(); err != nil {
+						app.logger.Error("Failed to publish discovery after MQTT connect", "error", err)
+					}
+				}
+			}()
+		}
+
+		// Start monitoring goroutines (message handlers started per-gateway above)
+		app.logger.Info("Starting periodic monitors...")
+		go app.periodicHeartbeatRequest(app.ctx)
+		go app.availabilityMonitor(app.ctx)
+		app.startConnectionMonitoring(app.ctx)
+	}
+
 	// Reconfigure transports
 	for gatewayName, gatewayConfig := range newConfig.MySensors {
 		if trans, exists := app.transports[gatewayName]; exists {
-			// Only reconnect if transport settings actually changed
+			// Reconnect if transport settings changed
 			switch gatewayConfig.Transport {
 			case "ethernet":
 				if ethTransport, ok := trans.(*transport.EthernetTransport); ok {
 					changed := ethTransport.Reconfigure(gatewayConfig.Ethernet.Host, gatewayConfig.Ethernet.Port)
-					if changed && trans.IsConnected() {
-						ethTransport.Disconnect()
-						if err := ethTransport.Connect(app.ctx); err != nil {
-							app.logger.Error("Failed to reconnect Ethernet transport after reconfiguration", "gateway", gatewayName, "error", err)
+					if changed {
+						if trans.IsConnected() {
+							ethTransport.Disconnect()
 						}
+						gName := gatewayName
+						go func() {
+							err := app.retryWithBackoff(app.ctx, fmt.Sprintf("%s transport reconnection", gName), -1, func() error {
+								return trans.Connect(app.ctx)
+							})
+							if err != nil {
+								app.logger.Error("Failed to reconnect Ethernet transport", "gateway", gName, "error", err)
+							} else {
+								app.logger.Info("Ethernet transport reconnected", "gateway", gName)
+								if app.eventBus != nil {
+									app.eventBus.Publish(api.Event{
+										Type: api.EventConnectionChanged,
+										Data: map[string]any{"type": "gateway", "name": gName, "connected": true},
+									})
+								}
+							}
+						}()
 					}
 				}
 			case "rs485":
 				if rs485Transport, ok := trans.(*transport.RS485Transport); ok {
 					changed := rs485Transport.Reconfigure(gatewayConfig.RS485.Device, 9600)
-					if changed && trans.IsConnected() {
-						rs485Transport.Disconnect()
-						if err := rs485Transport.Connect(app.ctx); err != nil {
-							app.logger.Error("Failed to reconnect RS485 transport after reconfiguration", "gateway", gatewayName, "error", err)
+					if changed {
+						if trans.IsConnected() {
+							rs485Transport.Disconnect()
 						}
+						gName := gatewayName
+						go func() {
+							err := app.retryWithBackoff(app.ctx, fmt.Sprintf("%s transport reconnection", gName), -1, func() error {
+								return trans.Connect(app.ctx)
+							})
+							if err != nil {
+								app.logger.Error("Failed to reconnect RS485 transport", "gateway", gName, "error", err)
+							} else {
+								app.logger.Info("RS485 transport reconnected", "gateway", gName)
+								if app.eventBus != nil {
+									app.eventBus.Publish(api.Event{
+										Type: api.EventConnectionChanged,
+										Data: map[string]any{"type": "gateway", "name": gName, "connected": true},
+									})
+								}
+							}
+						}()
 					}
 				}
 			}
@@ -1229,11 +1296,29 @@ func (app *Application) reloadConfig(configFile string) error {
 				continue
 			}
 			app.transports[gatewayName] = t
-			
-			// Connect the new transport
-			if err := t.Connect(app.ctx); err != nil {
-				app.logger.Error("Failed to connect new transport", "gateway", gatewayName, "error", err)
-			}
+
+			// Connect the new transport with retry logic in background
+			gName := gatewayName // capture for goroutine
+			trans := t           // capture for goroutine
+			go func() {
+				err := app.retryWithBackoff(app.ctx, fmt.Sprintf("%s transport connection", gName), -1, func() error {
+					return trans.Connect(app.ctx)
+				})
+				if err != nil {
+					app.logger.Error("Failed to connect new transport after retries", "gateway", gName, "error", err)
+				} else {
+					app.logger.Info("New transport connected successfully", "gateway", gName)
+					if app.eventBus != nil {
+						app.eventBus.Publish(api.Event{
+							Type: api.EventConnectionChanged,
+							Data: map[string]any{"type": "gateway", "name": gName, "connected": true},
+						})
+					}
+				}
+			}()
+
+			// Start message handler for this new transport
+			app.startTransportMessageHandler(gatewayName, t)
 		}
 	}
 
@@ -1262,9 +1347,13 @@ func (app *Application) reloadConfig(configFile string) error {
 				}
 			} else {
 				// Create new TCP server for new gateway
-				app.tcpServers[gatewayName] = tcp.NewServer(gatewayConfig.TCPService.Port, app.logger)
-				app.tcpServers[gatewayName].Start(context.Background())
+				newTCPServer := tcp.NewServer(gatewayConfig.TCPService.Port, app.logger)
+				app.tcpServers[gatewayName] = newTCPServer
+				newTCPServer.Start(context.Background())
 				app.logger.Info("Created TCP server for new gateway", "gateway", gatewayName, "port", gatewayConfig.TCPService.Port)
+
+				// Start message handler for this new TCP server
+				app.startTCPMessageHandler(gatewayName, newTCPServer)
 			}
 		} else {
 			// Stop TCP server if disabled

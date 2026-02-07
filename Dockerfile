@@ -23,7 +23,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o ms-mqtt-adapter ./cmd/ms-mqtt-adapter
 
 # ── CI path: frontend pre-built in context ───────────────────────────────────
 
-FROM golang:1.24-alpine AS builder-ci
+FROM golang:1.25-alpine AS builder-ci
 
 WORKDIR /app
 COPY . .

@@ -11,15 +11,17 @@ import (
 // and broadcasts log records to all registered listeners.
 type BroadcastHandler struct {
 	underlying slog.Handler
+	levelVar   *slog.LevelVar
 	mu         sync.RWMutex
 	listeners  []chan string
 }
 
 // NewBroadcastHandler creates a handler that broadcasts to listeners while also
-// delegating to the underlying handler.
+// delegating to the underlying handler. Note: levelVar will be nil, so SetLogLevel won't work.
 func NewBroadcastHandler(underlying slog.Handler) *BroadcastHandler {
 	return &BroadcastHandler{
 		underlying: underlying,
+		levelVar:   nil,
 		listeners:  make([]chan string, 0),
 	}
 }
@@ -54,6 +56,7 @@ func (h *BroadcastHandler) Handle(ctx context.Context, r slog.Record) error {
 func (h *BroadcastHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return &BroadcastHandler{
 		underlying: h.underlying.WithAttrs(attrs),
+		levelVar:   h.levelVar,
 		listeners:  h.listeners,
 		mu:         h.mu,
 	}
@@ -62,6 +65,7 @@ func (h *BroadcastHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 func (h *BroadcastHandler) WithGroup(name string) slog.Handler {
 	return &BroadcastHandler{
 		underlying: h.underlying.WithGroup(name),
+		levelVar:   h.levelVar,
 		listeners:  h.listeners,
 		mu:         h.mu,
 	}
@@ -108,6 +112,26 @@ func (h *BroadcastHandler) formatRecord(r slog.Record) string {
 	return string(buf)
 }
 
+// SetLogLevel updates the log level dynamically.
+func (h *BroadcastHandler) SetLogLevel(logLevel string) {
+	var level slog.Level
+	switch logLevel {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn", "warning":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+	if h.levelVar != nil {
+		h.levelVar.Set(level)
+	}
+}
+
 // NewBroadcastLogger creates a logger with broadcast capability.
 func NewBroadcastLogger(logLevel string, w io.Writer) (*slog.Logger, *BroadcastHandler) {
 	var level slog.Level
@@ -124,8 +148,14 @@ func NewBroadcastLogger(logLevel string, w io.Writer) (*slog.Logger, *BroadcastH
 		level = slog.LevelInfo
 	}
 
-	opts := &slog.HandlerOptions{Level: level}
+	levelVar := &slog.LevelVar{}
+	levelVar.Set(level)
+	opts := &slog.HandlerOptions{Level: levelVar}
 	underlying := slog.NewTextHandler(w, opts)
-	broadcast := NewBroadcastHandler(underlying)
+	broadcast := &BroadcastHandler{
+		underlying: underlying,
+		levelVar:   levelVar,
+		listeners:  make([]chan string, 0),
+	}
 	return slog.New(broadcast), broadcast
 }

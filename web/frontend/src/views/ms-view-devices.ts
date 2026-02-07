@@ -306,7 +306,7 @@ export class MsViewDevices extends LitElement {
       hw_version: "1.0",
       entities: [
         { name: "Ambient temperature", id: "ambient_temperature", child_id: 9, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
-        { name: "P2P Toggle", id: "p2p_toggle", child_id: 10, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch", sync_period: 30000000000 },
+        { name: "P2P Toggle", id: "p2p_toggle", child_id: 10, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch" },
         ...Array.from({ length: 9 }, (_, i) => ({
           name: `Relay ${i + 1}`,
           id: `relay_${i + 1}`,

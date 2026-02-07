@@ -204,8 +204,8 @@ export class MsViewGateways extends LitElement {
 
   private _availSchema(): FormSchema[] {
     return [
-      { name: "availability_window", label: "Availability Window", type: "string", hint: "e.g. 30s, 5m" },
-      { name: "heartbeat_request_period", label: "Heartbeat Request Period", type: "string", hint: "e.g. 5s, 0s to disable" },
+      { name: "availability_window", label: "Availability Window", type: "string", hint: "How long to consider a node online after receiving a message (e.g. 30s, 5m). Nodes go offline in HA if no messages received within this window." },
+      { name: "heartbeat_request_period", label: "Heartbeat Request Period", type: "string", hint: "How often to request heartbeat from gateway (e.g. 10s). Set to 0s to disable. Gateway responds with I_HEARTBEAT_RESPONSE to prove it's alive." },
     ];
   }
 
@@ -259,7 +259,22 @@ export class MsViewGateways extends LitElement {
 
   private _addGateway() {
     this._editingName = "";
-    this._editingGateway = {};
+    this._editingGateway = {
+      gateway: {
+        node_id_assignment: {
+          enabled: true,
+          random_id_assignment: true,
+          node_id_range: {
+            start: 101,
+            end: 199
+          }
+        }
+      },
+      tcp_service: {
+        enabled: true,
+        port: 5003
+      }
+    };
     this._showDialog = true;
   }
 
@@ -272,7 +287,7 @@ export class MsViewGateways extends LitElement {
           <input .value=${this._editingName} @input=${(e: Event) => this._editingName = (e.target as HTMLInputElement).value}>
         </div>
         <p style="font-size:var(--ha-font-size-s);color:var(--secondary-text-color)">
-          A gateway will be created with default settings (ethernet transport, port 5003).
+          A gateway will be created with default settings (ethernet transport port 5003, TCP service enabled on port 5003, random node ID assignment enabled for range 101-199).
           You can configure all settings after creation.
         </p>
         <ms-button slot="footer" variant="neutral" appearance="plain" @click=${() => this._showDialog = false}>Cancel</ms-button>

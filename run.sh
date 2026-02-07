@@ -18,25 +18,16 @@ if [ ! -f "${CONFIG_PATH}" ]; then
 # Configure via the web UI - all options are managed through the UI
 
 log_level: info
-
-mysensors: {}
-
 mqtt:
-  broker: ""
+  broker: core-mosquitto
   port: 1883
-  client_id: "ms-mqtt-adapter"
-
+  username: ms-mqtt-adapter
+  password: ms-mqtt-adapter
+  client_id: ms-mqtt-adapter
 adapter:
-  topic_prefix: "ms-mqtt-adapter"
-  discovery_prefix: "homeassistant"
+  topic_prefix: ms-mqtt-adapter
+  discovery_prefix: homeassistant
   homeassistant_discovery: true
-
-id_aliases:
-  relay3_ch0: 0
-  relay3_ch1: 1
-  relay3_ch2: 2
-
-devices: []
 EOF
 else
     bashio::log.info "Using existing persistent config at ${CONFIG_PATH}"

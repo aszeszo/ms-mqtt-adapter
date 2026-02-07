@@ -180,6 +180,12 @@ func (c *Client) createEntityHandler(deviceName, entityName, compositeKey, devic
 		payload := string(msg.Payload())
 		c.logger.Debug("MQTT RX", "topic", msg.Topic(), "payload", payload)
 
+		// Silently ignore empty payloads (HA sometimes sends these during discovery)
+		if payload == "" {
+			c.logger.Debug("Ignoring empty payload", "topic", msg.Topic())
+			return
+		}
+
 		// Validate payload based on entity type
 		if !c.validateEntityPayload(entityType, payload) {
 			c.logger.Warn("Invalid entity payload", "entityType", entityType, "payload", payload)
