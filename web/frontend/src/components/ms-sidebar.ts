@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { route: "mqtt-topics", label: "MQTT Topics" },
   { route: "aliases", label: "Aliases" },
   { route: "logs", label: "Logs" },
+  { route: "traffic", label: "Traffic" },
   { route: "editor", label: "Editor" },
 ];
 

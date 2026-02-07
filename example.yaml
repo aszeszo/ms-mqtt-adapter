@@ -72,12 +72,19 @@ id_aliases:
   relay9_ch6: 5
   relay9_ch7: 4
   relay9_ch8: 3
+  relay3_ch0: 0
+  relay3_ch1: 1
+  relay3_ch2: 2
 
 # Adapter behavior configuration (all optional)
 adapter:
   # MQTT topic prefix for all adapter topics
   # Default: "ms-mqtt-adapter"
   topic_prefix: "ms-mqtt-adapter"
+
+  # Discovery prefix for Home Assistant MQTT discovery
+  # Default: "homeassistant"
+  discovery_prefix: "homeassistant"
 
   # Enable Home Assistant auto-discovery
   # Default: true
@@ -221,6 +228,37 @@ devices:
         entity_type: "switch"
         sync_period: "60s"                 # Low-frequency sync
         icon: "mdi:toggle-switch"
+
+  # Nippy Relay 3 example using relay3_ch* aliases
+  - name: "Relay 3 Control"
+    id: "relay_3"
+    node_id: 3                             # MySensors node ID for Relay 3 device
+    manufacturer: "Nippy"
+    model: "Relay 3"
+    sw_version: "1.0.0"
+    hw_version: "1.0.0"
+
+    entities:
+      - name: "Relay 3 Channel 0"
+        id: "ch0"
+        child_id: relay3_ch0               # Using alias (resolves to 0)
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:electric-switch"
+
+      - name: "Relay 3 Channel 1"
+        id: "ch1"
+        child_id: relay3_ch1               # Using alias (resolves to 1)
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:electric-switch"
+
+      - name: "Relay 3 Channel 2"
+        id: "ch2"
+        child_id: relay3_ch2               # Using alias (resolves to 2)
+        entity_type: "switch"
+        initial_value: "0"
+        icon: "mdi:electric-switch"
 
   # Example input device (sensors/buttons)
   - name: "Multi-Sensor Panel"

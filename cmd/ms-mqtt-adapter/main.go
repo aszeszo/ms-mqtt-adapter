@@ -38,7 +38,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "2.2.1")
+	logger.Info("Starting ms-mqtt-adapter", "version", "2.2.2")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -152,6 +152,7 @@ func (app *Application) GetGatewayStatus(name string) api.GatewayStatus {
 		SeenNodes:        gw.GetSeenNodes(),
 		NodeAvailability: gw.GetAllNodeAvailabilityStatus(),
 		LastSeenNodeID:   gw.GetLastSeenNodeID(),
+		LastIssuedNodeID: gw.GetLastIssuedNodeID(),
 	}
 }
 
@@ -417,10 +418,16 @@ func (app *Application) initializeGateways() error {
 
 		gateway := gateway.NewGateway(gatewayName, gatewayConf, app.config, gatewayTransport, app.mqttClient, app.logger)
 
-		// Set up callback to forward outgoing messages to TCP clients
+		// Set up callback to forward outgoing messages to TCP clients and traffic monitor
 		if tcpServer, exists := app.tcpServers[gatewayName]; exists {
 			gateway.SetMessageSentCallback(func(message *mysensors.Message) {
 				tcpServer.BroadcastMessage(message)
+				app.publishMySensorsTraffic(gatewayName, "tx", message)
+			})
+		} else {
+			// No TCP server, only publish to traffic monitor
+			gateway.SetMessageSentCallback(func(message *mysensors.Message) {
+				app.publishMySensorsTraffic(gatewayName, "tx", message)
 			})
 		}
 
@@ -629,6 +636,9 @@ func (app *Application) handleMySensorsMessages() {
 				app.logger.Debug("MySensors message details", "gateway", gName,
 					"node_id", message.NodeID, "child_id", message.ChildID, "msg_type", message.MessageType,
 					"is_set", message.IsSet(), "is_req", message.IsReq(), "is_internal", message.IsInternal(), "var_type", message.GetVariableType())
+
+				// Broadcast MySensors message for traffic monitoring
+				app.publishMySensorsTraffic(gName, "rx", message)
 
 				// Broadcast to corresponding TCP server
 				if tcpServer, exists := app.tcpServers[gName]; exists {
@@ -884,6 +894,44 @@ func (app *Application) checkForAckResponse(message *mysensors.Message) {
 	}
 }
 
+func (app *Application) publishMySensorsTraffic(gateway, direction string, message *mysensors.Message) {
+	if app.eventBus == nil {
+		return
+	}
+
+	msgType := "UNKNOWN"
+	switch message.MessageType {
+	case mysensors.PRESENTATION:
+		msgType = "PRESENTATION"
+	case mysensors.SET:
+		msgType = "SET"
+	case mysensors.REQ:
+		msgType = "REQ"
+	case mysensors.INTERNAL:
+		msgType = "INTERNAL"
+	case mysensors.STREAM:
+		msgType = "STREAM"
+	}
+
+	trafficMsg := api.MySensorsTrafficMessage{
+		Timestamp: time.Now().Format(time.RFC3339),
+		Gateway:   gateway,
+		Direction: direction,
+		Raw:       message.String(),
+		NodeID:    message.NodeID,
+		ChildID:   message.ChildID,
+		Type:      msgType,
+		Ack:       message.Ack,
+		SubType:   message.SubType,
+		Payload:   message.Payload,
+	}
+
+	app.eventBus.Publish(api.Event{
+		Type: api.EventMySensorsMessage,
+		Data: trafficMsg,
+	})
+}
+
 func (app *Application) handleDeviceMessage(message *mysensors.Message) {
 	if !message.IsSet() && !message.IsReq() {
 		app.logger.Debug("Ignoring non-SET/REQ message", "message", message.String(), "msg_type", message.MessageType)
@@ -1137,16 +1185,12 @@ func (app *Application) reloadConfig(configFile string) error {
 	// Reconfigure transports
 	for gatewayName, gatewayConfig := range newConfig.MySensors {
 		if trans, exists := app.transports[gatewayName]; exists {
-			wasConnected := trans.IsConnected()
-			
-			// For existing transports, we might need to reconnect if settings changed
+			// Only reconnect if transport settings actually changed
 			switch gatewayConfig.Transport {
 			case "ethernet":
-				// Check if ethernet settings changed
 				if ethTransport, ok := trans.(*transport.EthernetTransport); ok {
-					ethTransport.Reconfigure(gatewayConfig.Ethernet.Host, gatewayConfig.Ethernet.Port)
-					// Reconnect to apply new settings
-					if wasConnected {
+					changed := ethTransport.Reconfigure(gatewayConfig.Ethernet.Host, gatewayConfig.Ethernet.Port)
+					if changed && trans.IsConnected() {
 						ethTransport.Disconnect()
 						if err := ethTransport.Connect(app.ctx); err != nil {
 							app.logger.Error("Failed to reconnect Ethernet transport after reconfiguration", "gateway", gatewayName, "error", err)
@@ -1154,11 +1198,9 @@ func (app *Application) reloadConfig(configFile string) error {
 					}
 				}
 			case "rs485":
-				// Check if RS485 settings changed
 				if rs485Transport, ok := trans.(*transport.RS485Transport); ok {
-					rs485Transport.Reconfigure(gatewayConfig.RS485.Device, 9600)
-					// Reconnect to apply new settings
-					if wasConnected {
+					changed := rs485Transport.Reconfigure(gatewayConfig.RS485.Device, 9600)
+					if changed && trans.IsConnected() {
 						rs485Transport.Disconnect()
 						if err := rs485Transport.Connect(app.ctx); err != nil {
 							app.logger.Error("Failed to reconnect RS485 transport after reconfiguration", "gateway", gatewayName, "error", err)
@@ -1262,10 +1304,16 @@ func (app *Application) reloadConfig(configFile string) error {
 
 			newGateway := gateway.NewGateway(gatewayName, gatewayConf, newConfig, gatewayTransport, app.mqttClient, app.logger)
 
-			// Set up callback to forward outgoing messages to TCP clients
+			// Set up callback to forward outgoing messages to TCP clients and traffic monitor
 			if tcpServer, exists := app.tcpServers[gatewayName]; exists {
 				newGateway.SetMessageSentCallback(func(message *mysensors.Message) {
 					tcpServer.BroadcastMessage(message)
+					app.publishMySensorsTraffic(gatewayName, "tx", message)
+				})
+			} else {
+				// No TCP server, only publish to traffic monitor
+				newGateway.SetMessageSentCallback(func(message *mysensors.Message) {
+					app.publishMySensorsTraffic(gatewayName, "tx", message)
 				})
 			}
 
@@ -1290,6 +1338,9 @@ func (app *Application) reloadConfig(configFile string) error {
 		app.logger.Error("Failed to reconfigure sync manager", "error", err)
 		return fmt.Errorf("failed to reconfigure sync manager: %w", err)
 	}
+
+	// Re-register MQTT command handlers for all devices (including newly added ones)
+	app.handleMQTTStateChanges()
 
 	// Republish Home Assistant discovery topics
 	if err := app.publishDiscovery(); err != nil {

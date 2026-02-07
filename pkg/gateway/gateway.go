@@ -32,6 +32,10 @@ type Gateway struct {
 	// Last seen node tracking
 	lastSeenNodeID int
 	lastSeenMu     sync.RWMutex
+
+	// Last issued node ID tracking
+	lastIssuedNodeID int
+	lastIssuedMu     sync.RWMutex
 }
 
 func NewGateway(gatewayName string, gatewayConfig *config.GatewayConfig, appConfig *config.Config, transport transport.Transport, mqttClient *mqtt.Client, logger *slog.Logger) *Gateway {
@@ -110,6 +114,11 @@ func (g *Gateway) handleIDRequest(message *mysensors.Message) error {
 	g.logger.Info("Assigned node ID", "assigned_id", nodeID, "requesting_node", message.NodeID,
 		"method", assignmentMethod)
 	g.trackNode(nodeID)
+
+	// Track last issued node ID
+	g.lastIssuedMu.Lock()
+	g.lastIssuedNodeID = nodeID
+	g.lastIssuedMu.Unlock()
 
 	// Publish last issued node ID to MQTT
 	if g.mqttClient != nil {
@@ -296,6 +305,13 @@ func (g *Gateway) GetLastSeenNodeID() int {
 	g.lastSeenMu.RLock()
 	defer g.lastSeenMu.RUnlock()
 	return g.lastSeenNodeID
+}
+
+// GetLastIssuedNodeID returns the most recently issued/assigned node ID, or 0 if none.
+func (g *Gateway) GetLastIssuedNodeID() int {
+	g.lastIssuedMu.RLock()
+	defer g.lastIssuedMu.RUnlock()
+	return g.lastIssuedNodeID
 }
 
 func (g *Gateway) SendHeartbeatRequest() error {

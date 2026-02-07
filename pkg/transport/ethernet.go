@@ -163,14 +163,15 @@ func (et *EthernetTransport) readLoop() {
 }
 
 // Reconfigure updates the Ethernet transport configuration
-func (et *EthernetTransport) Reconfigure(host string, port int) {
+func (et *EthernetTransport) Reconfigure(host string, port int) bool {
 	et.mu.Lock()
 	defer et.mu.Unlock()
 
-	// Only update if configuration has changed
 	if et.host != host || et.port != port {
 		et.host = host
 		et.port = port
 		et.logger.Info("Ethernet transport reconfigured", "host", host, "port", port)
+		return true
 	}
+	return false
 }

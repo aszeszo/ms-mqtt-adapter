@@ -26,6 +26,7 @@ import "./views/ms-view-mqtt-topics";
 import "./views/ms-view-aliases";
 import "./views/ms-view-editor";
 import "./views/ms-view-logs";
+import "./views/ms-view-traffic";
 
 // WebSocket
 import { adapterWS } from "./websocket";

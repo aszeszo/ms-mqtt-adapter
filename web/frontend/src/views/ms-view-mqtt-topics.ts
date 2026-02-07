@@ -2,156 +2,173 @@ import { LitElement, html, css, nothing } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { api } from "../api";
 
+interface BrokerTopic {
+  topic: string;
+  payload: string;
+  retained: boolean;
+}
+
 @customElement("ms-view-mqtt-topics")
 export class MsViewMqttTopics extends LitElement {
-  @state() private _topics: any = null;
+  @state() private _topics: BrokerTopic[] = [];
   @state() private _loading = true;
-  @state() private _filter = "all";
+  @state() private _search = "";
+  @state() private _expandedTopic = "";
+  @state() private _selected = new Set<string>();
   @state() private _showConfirm = false;
-  @state() private _deleteScope = "";
-  @state() private _deleteDevice = "";
-  @state() private _deleteEntity = "";
-  @state() private _deleteMessage = "";
+  @state() private _confirmMessage = "";
+  @state() private _confirmAction: (() => Promise<void>) | null = null;
 
   static styles = css`
     :host { display: block; }
+
     .toolbar {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: var(--ha-space-4, 16px);
-      flex-wrap: wrap;
-      gap: var(--ha-space-3, 12px);
-    }
-    .filter {
-      display: flex;
-      gap: var(--ha-space-2, 8px);
+      gap: 8px;
+      margin-bottom: 12px;
       flex-wrap: wrap;
     }
-    .section {
-      margin-bottom: var(--ha-space-6, 24px);
-    }
-    .section-title {
-      font-size: var(--ha-font-size-l, 16px);
-      font-weight: var(--ha-font-weight-medium, 500);
-      margin-bottom: var(--ha-space-3, 12px);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: var(--ha-space-2, 8px);
-    }
-    .topic-list {
-      display: flex;
-      flex-direction: column;
-      gap: var(--ha-space-2, 8px);
-    }
-    .topic-item {
-      display: grid;
-      grid-template-columns: auto 1fr auto auto auto;
-      gap: var(--ha-space-2, 8px);
-      align-items: center;
-      padding: var(--ha-space-2, 8px) var(--ha-space-3, 12px);
-      background: var(--card-background-color);
+    .toolbar input {
+      flex: 1;
+      min-width: 200px;
+      padding: 6px 10px;
       border: 1px solid var(--divider-color);
-      border-radius: var(--ha-border-radius-sm);
-      font-family: var(--ha-font-family-code, monospace);
-      font-size: var(--ha-font-size-s, 12px);
+      border-radius: var(--ha-border-radius-sm, 4px);
+      background: var(--card-background-color);
+      color: var(--primary-text-color);
+      font-size: 13px;
+      font-family: inherit;
     }
-    .topic-type {
-      padding: 2px 8px;
-      border-radius: var(--ha-border-radius-pill);
-      font-size: var(--ha-font-size-xs, 11px);
-      text-transform: uppercase;
-      font-weight: var(--ha-font-weight-medium, 500);
+    .toolbar input::placeholder {
+      color: var(--secondary-text-color);
+    }
+    .count {
+      font-size: 12px;
+      color: var(--secondary-text-color);
       white-space: nowrap;
     }
-    .topic-type.state { background: var(--info-color); color: white; }
-    .topic-type.command { background: var(--warning-color); color: white; }
-    .topic-type.availability { background: var(--success-color); color: white; }
-    .topic-type.discovery { background: var(--primary-color); color: white; }
-    .topic-type.gateway { background: var(--accent-color); color: white; }
+
+    .topic-table {
+      border: 1px solid var(--divider-color);
+      border-radius: var(--ha-border-radius-m, 6px);
+      overflow: hidden;
+    }
+    .topic-row {
+      display: grid;
+      grid-template-columns: 32px 1fr auto auto 32px;
+      align-items: center;
+      padding: 4px 8px;
+      font-size: 12px;
+      line-height: 1.3;
+      border-bottom: 1px solid var(--divider-color);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .topic-row:last-child { border-bottom: none; }
+    .topic-row:nth-child(even) { background: color-mix(in srgb, var(--secondary-background-color) 50%, transparent); }
+    .topic-row:hover { background: color-mix(in srgb, var(--primary-color) 8%, transparent); }
+    .topic-row.expanded { background: color-mix(in srgb, var(--primary-color) 12%, transparent); }
+
+    .topic-row input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      cursor: pointer;
+    }
     .topic-path {
+      font-family: var(--ha-font-family-code, monospace);
+      font-size: 11px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       min-width: 0;
     }
-    .topic-meta {
-      font-size: var(--ha-font-size-xs, 11px);
+    .topic-payload-preview {
+      font-size: 11px;
       color: var(--secondary-text-color);
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
+      max-width: 300px;
+      padding: 0 8px;
     }
     .retained-badge {
-      padding: 2px 6px;
+      padding: 1px 5px;
       background: var(--divider-color);
-      border-radius: var(--ha-border-radius-pill);
-      font-size: var(--ha-font-size-xs, 10px);
+      border-radius: 8px;
+      font-size: 10px;
       white-space: nowrap;
     }
-    .topic-actions {
-      display: flex;
-      gap: var(--ha-space-1, 4px);
-    }
-    .topic-actions button {
-      padding: 2px 8px;
-      font-size: var(--ha-font-size-xs, 11px);
+    .delete-btn {
+      padding: 2px 6px;
+      font-size: 10px;
       background: none;
       border: 1px solid var(--divider-color);
-      border-radius: var(--ha-border-radius-sm);
+      border-radius: 3px;
       cursor: pointer;
       color: var(--error-color);
+      line-height: 1;
     }
-    .topic-actions button:hover {
+    .delete-btn:hover {
       background: var(--error-color);
       color: white;
     }
-    .danger-zone {
-      margin-top: var(--ha-space-8, 32px);
-      padding: var(--ha-space-4, 16px);
-      border: 2px solid var(--error-color);
-      border-radius: var(--ha-border-radius-m);
-      background: color-mix(in srgb, var(--error-color) 10%, transparent);
-    }
-    .danger-title {
-      font-size: var(--ha-font-size-l, 16px);
-      font-weight: var(--ha-font-weight-bold, 700);
-      color: var(--error-color);
-      margin-bottom: var(--ha-space-2, 8px);
-    }
-    .danger-actions {
-      display: flex;
-      gap: var(--ha-space-2, 8px);
-      margin-top: var(--ha-space-3, 12px);
-      flex-wrap: wrap;
-    }
-    .device-group {
-      margin-bottom: var(--ha-space-4, 16px);
-      border: 1px solid var(--divider-color);
-      border-radius: var(--ha-border-radius-m);
-      overflow: hidden;
-    }
-    .device-header {
-      padding: var(--ha-space-2, 8px) var(--ha-space-3, 12px);
+
+    .payload-detail {
+      padding: 8px 8px 8px 40px;
+      border-bottom: 1px solid var(--divider-color);
       background: var(--secondary-background-color);
+    }
+    .payload-detail pre {
+      margin: 0;
+      font-family: var(--ha-font-family-code, monospace);
+      font-size: 11px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 300px;
+      overflow: auto;
+      color: var(--primary-text-color);
+    }
+    .payload-detail .payload-actions {
+      margin-top: 6px;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: var(--ha-font-weight-medium, 500);
+      gap: 6px;
     }
-    .device-topics {
-      padding: var(--ha-space-2, 8px);
+    .tree-delete-btn {
+      padding: 2px 8px;
+      font-size: 11px;
+      background: none;
+      border: 1px solid var(--error-color);
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--error-color);
     }
+    .tree-delete-btn:hover {
+      background: var(--error-color);
+      color: white;
+    }
+
     .loading {
       text-align: center;
-      padding: var(--ha-space-8, 32px);
+      padding: 32px;
       color: var(--secondary-text-color);
     }
-    .no-mqtt {
+    .empty {
       text-align: center;
-      padding: var(--ha-space-8, 32px);
+      padding: 24px;
       color: var(--secondary-text-color);
+      font-size: 13px;
     }
+    .select-all-label {
+      font-size: 12px;
+      color: var(--secondary-text-color);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .select-all-label input { cursor: pointer; }
   `;
 
   connectedCallback() {
@@ -160,201 +177,207 @@ export class MsViewMqttTopics extends LitElement {
   }
 
   private async _load() {
+    this._loading = true;
     try {
       this._topics = await api.getMQTTTopics();
-    } catch (e) {
+    } catch {
+      this._topics = [];
       this._toast("error", "Failed to load topics");
     }
     this._loading = false;
   }
 
+  private get _filtered(): BrokerTopic[] {
+    if (!this._search) return this._topics;
+    const q = this._search.toLowerCase();
+    return this._topics.filter(
+      (t) => t.topic.toLowerCase().includes(q) || t.payload.toLowerCase().includes(q)
+    );
+  }
+
   render() {
-    if (this._loading) return html`<div class="loading">Loading...</div>`;
-    if (!this._topics) return html`<div class="no-mqtt">MQTT client not available</div>`;
+    if (this._loading) {
+      return html`<div class="loading">Browsing MQTT broker topics (3s)...</div>`;
+    }
+
+    const filtered = this._filtered;
+    const allFilteredTopics = filtered.map((t) => t.topic);
+    const allSelected = filtered.length > 0 && filtered.every((t) => this._selected.has(t.topic));
 
     return html`
       <div class="toolbar">
-        <h2>MQTT Topics</h2>
-        <div class="filter">
-          <ms-button appearance="${this._filter === 'all' ? 'filled' : 'outlined'}" variant="neutral" @click=${() => this._filter = "all"}>All</ms-button>
-          <ms-button appearance="${this._filter === 'adapter' ? 'filled' : 'outlined'}" variant="neutral" @click=${() => this._filter = "adapter"}>Adapter</ms-button>
-          <ms-button appearance="${this._filter === 'discovery' ? 'filled' : 'outlined'}" variant="neutral" @click=${() => this._filter = "discovery"}>Discovery</ms-button>
-          <ms-button appearance="${this._filter === 'gateway' ? 'filled' : 'outlined'}" variant="neutral" @click=${() => this._filter = "gateway"}>Gateway</ms-button>
-          <ms-button appearance="outlined" variant="neutral" @click=${this._load}>Refresh</ms-button>
-        </div>
+        <input
+          type="text"
+          placeholder="Filter topics..."
+          .value=${this._search}
+          @input=${(e: Event) => { this._search = (e.target as HTMLInputElement).value; }}
+        />
+        <span class="count">
+          ${filtered.length === this._topics.length
+            ? `${this._topics.length} topics`
+            : `${filtered.length} of ${this._topics.length} topics`}
+        </span>
+        <ms-button appearance="outlined" variant="neutral" size="small" @click=${this._load}>
+          Refresh
+        </ms-button>
+        ${this._selected.size > 0
+          ? html`<ms-button variant="danger" size="small" @click=${this._deleteSelected}>
+              Delete Selected (${this._selected.size})
+            </ms-button>`
+          : nothing}
       </div>
 
-      ${this._filter === "all" || this._filter === "adapter" ? this._renderAdapterSection() : nothing}
-      ${this._filter === "all" || this._filter === "discovery" ? this._renderDiscoverySection() : nothing}
-      ${this._filter === "all" || this._filter === "gateway" ? this._renderGatewaySection() : nothing}
-
-      <div class="danger-zone">
-        <div class="danger-title">⚠️ Danger Zone</div>
-        <p>Clearing topics will remove them from the MQTT broker. Home Assistant entities will become unavailable until republished.</p>
-        <div class="danger-actions">
-          <ms-button variant="danger" @click=${() => this._confirmDelete("all", "", "", "Clear ALL topics? This will remove all adapter, discovery, and gateway topics.")}>
-            Clear All Topics
-          </ms-button>
-        </div>
-      </div>
+      ${filtered.length === 0
+        ? html`<div class="empty">${this._topics.length === 0 ? "No topics found on broker" : "No topics match filter"}</div>`
+        : html`
+          <div style="margin-bottom:6px">
+            <label class="select-all-label">
+              <input
+                type="checkbox"
+                .checked=${allSelected}
+                @change=${() => this._toggleSelectAll(allFilteredTopics, !allSelected)}
+              />
+              Select all${this._search ? " matching" : ""}
+            </label>
+          </div>
+          <div class="topic-table">
+            ${filtered.map((t) => this._renderTopicRow(t))}
+          </div>
+        `}
 
       ${this._renderConfirmDialog()}
     `;
   }
 
-  private _renderAdapterSection() {
-    const topics = this._topics.adapter_topics || [];
-    const byDevice = this._groupByDevice(topics);
+  private _renderTopicRow(t: BrokerTopic) {
+    const expanded = this._expandedTopic === t.topic;
+    const preview = t.payload.length > 60 ? t.payload.slice(0, 60) + "..." : t.payload;
+
+    // Calculate tree prefix segments for subtree deletion
+    const segments = t.topic.split("/");
+    const treePrefix = segments.length > 1 ? segments.slice(0, -1).join("/") : "";
 
     return html`
-      <div class="section">
-        <div class="section-title">
-          <span>Adapter Topics (${topics.length})</span>
-          <ms-button variant="danger" appearance="outlined" size="small"
-            @click=${() => this._confirmDelete("adapter", "", "", "Clear all adapter topics (state, command, availability)?")}>
-            Clear All Adapter Topics
-          </ms-button>
-        </div>
-        ${Object.entries(byDevice).map(([deviceId, deviceTopics]) => this._renderDeviceGroup(deviceId, deviceTopics as any[]))}
+      <div
+        class="topic-row ${expanded ? "expanded" : ""}"
+        @click=${(e: Event) => {
+          // Don't toggle on checkbox or button clicks
+          if ((e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "BUTTON") return;
+          this._expandedTopic = expanded ? "" : t.topic;
+        }}
+      >
+        <input
+          type="checkbox"
+          .checked=${this._selected.has(t.topic)}
+          @change=${(e: Event) => {
+            e.stopPropagation();
+            this._toggleSelect(t.topic);
+          }}
+        />
+        <span class="topic-path" title=${t.topic}>${t.topic}</span>
+        <span class="topic-payload-preview" title=${t.payload}>${preview || "(empty)"}</span>
+        ${t.retained ? html`<span class="retained-badge">retained</span>` : html`<span></span>`}
+        <button class="delete-btn" title="Delete this topic" @click=${(e: Event) => {
+          e.stopPropagation();
+          this._confirmDeleteTopics([t.topic], `Delete topic "${t.topic}"?`);
+        }}>x</button>
       </div>
-    `;
-  }
-
-  private _renderDiscoverySection() {
-    const topics = this._topics.discovery_topics || [];
-    const byDevice = this._groupByDevice(topics);
-
-    return html`
-      <div class="section">
-        <div class="section-title">
-          <span>Home Assistant Discovery (${topics.length})</span>
-          <ms-button variant="danger" appearance="outlined" size="small"
-            @click=${() => this._confirmDelete("discovery", "", "", "Clear all Home Assistant discovery topics? Entities will disappear from HA until republished.")}>
-            Clear All Discovery Topics
-          </ms-button>
-        </div>
-        ${Object.entries(byDevice).map(([deviceId, deviceTopics]) => this._renderDeviceGroup(deviceId, deviceTopics as any[]))}
-      </div>
-    `;
-  }
-
-  private _renderGatewaySection() {
-    const topics = this._topics.gateway_topics || [];
-
-    return html`
-      <div class="section">
-        <div class="section-title">
-          <span>Gateway Topics (${topics.length})</span>
-        </div>
-        <div class="topic-list">
-          ${topics.map((t: any) => this._renderTopic(t, false))}
-        </div>
-      </div>
-    `;
-  }
-
-  private _groupByDevice(topics: any[]): Record<string, any[]> {
-    const grouped: Record<string, any[]> = {};
-    for (const topic of topics) {
-      const deviceId = topic.device_id || "unknown";
-      if (!grouped[deviceId]) grouped[deviceId] = [];
-      grouped[deviceId].push(topic);
-    }
-    return grouped;
-  }
-
-  private _renderDeviceGroup(deviceId: string, topics: any[]) {
-    return html`
-      <div class="device-group">
-        <div class="device-header">
-          <span>Device: ${deviceId}</span>
-          <ms-button variant="danger" appearance="outlined" size="small"
-            @click=${() => this._confirmDelete("device", deviceId, "", `Clear all topics for device "${deviceId}"?`)}>
-            Clear Device Topics
-          </ms-button>
-        </div>
-        <div class="device-topics">
-          ${this._groupByEntity(topics)}
-        </div>
-      </div>
-    `;
-  }
-
-  private _groupByEntity(topics: any[]) {
-    const byEntity: Record<string, any[]> = {};
-    for (const topic of topics) {
-      const entityId = topic.entity_id || "unknown";
-      if (!byEntity[entityId]) byEntity[entityId] = [];
-      byEntity[entityId].push(topic);
-    }
-
-    return Object.entries(byEntity).map(([entityId, entityTopics]) => html`
-      <div style="margin-bottom: var(--ha-space-3, 12px);">
-        <div style="font-size: var(--ha-font-size-s, 12px); color: var(--secondary-text-color); margin-bottom: var(--ha-space-1, 4px); display: flex; justify-content: space-between; align-items: center;">
-          <span>Entity: ${entityId}</span>
-          <ms-button variant="danger" appearance="outlined" size="small"
-            @click=${() => this._confirmDelete("entity", entityTopics[0].device_id, entityId, `Clear topics for entity "${entityId}"?`)}>
-            Clear Entity
-          </ms-button>
-        </div>
-        <div class="topic-list">
-          ${entityTopics.map((t: any) => this._renderTopic(t, true))}
-        </div>
-      </div>
-    `);
-  }
-
-  private _renderTopic(topic: any, showActions: boolean) {
-    return html`
-      <div class="topic-item">
-        <span class="topic-type ${topic.type}">${topic.type}</span>
-        <span class="topic-path" title="${topic.topic}">${topic.topic}</span>
-        <span class="topic-meta">
-          ${topic.gateway ? `GW: ${topic.gateway}` : ""}
-        </span>
-        ${topic.retained ? html`<span class="retained-badge">retained</span>` : html`<span></span>`}
-        ${showActions && topic.retained ? html`
-          <div class="topic-actions">
-            <button @click=${() => this._confirmDelete("entity", topic.device_id, topic.entity_id, `Clear this entity's topics?`)} title="Clear this entity">
-              Clear
-            </button>
+      ${expanded ? html`
+        <div class="payload-detail">
+          <pre>${this._formatPayload(t.payload)}</pre>
+          <div class="payload-actions">
+            ${treePrefix ? html`
+              <button class="tree-delete-btn" @click=${() =>
+                this._confirmDeleteTree(treePrefix, `Delete all retained topics under "${treePrefix}/"?`)
+              }>
+                Delete tree: ${treePrefix}/...
+              </button>
+            ` : nothing}
           </div>
-        ` : html`<span></span>`}
-      </div>
+        </div>
+      ` : nothing}
     `;
   }
 
-  private _confirmDelete(scope: string, deviceId: string, entityId: string, message: string) {
-    this._deleteScope = scope;
-    this._deleteDevice = deviceId;
-    this._deleteEntity = entityId;
-    this._deleteMessage = message;
+  private _formatPayload(payload: string): string {
+    if (!payload) return "(empty)";
+    try {
+      const parsed = JSON.parse(payload);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return payload;
+    }
+  }
+
+  private _toggleSelect(topic: string) {
+    const next = new Set(this._selected);
+    if (next.has(topic)) {
+      next.delete(topic);
+    } else {
+      next.add(topic);
+    }
+    this._selected = next;
+  }
+
+  private _toggleSelectAll(topics: string[], select: boolean) {
+    const next = new Set(this._selected);
+    for (const t of topics) {
+      if (select) {
+        next.add(t);
+      } else {
+        next.delete(t);
+      }
+    }
+    this._selected = next;
+  }
+
+  private _confirmDeleteTopics(topics: string[], message: string) {
+    this._confirmMessage = message;
+    this._confirmAction = async () => {
+      await api.deleteMQTTTopics({ topics });
+      this._selected = new Set();
+      await this._load();
+      this._toast("success", `Deleted ${topics.length} topic(s)`);
+    };
     this._showConfirm = true;
   }
 
-  private async _executeDelete() {
-    try {
-      await api.deleteMQTTTopics(this._deleteScope, this._deleteDevice, this._deleteEntity);
-      this._showConfirm = false;
+  private _confirmDeleteTree(prefix: string, message: string) {
+    this._confirmMessage = message;
+    this._confirmAction = async () => {
+      const result = await api.deleteMQTTTopics({ prefix }) as any;
+      this._selected = new Set();
       await this._load();
-      this._toast("success", "Topics cleared successfully");
+      this._toast("success", `Deleted ${result.deleted || 0} retained topic(s)`);
+    };
+    this._showConfirm = true;
+  }
+
+  private _deleteSelected() {
+    const topics = Array.from(this._selected);
+    this._confirmDeleteTopics(topics, `Delete ${topics.length} selected topic(s)?`);
+  }
+
+  private async _executeConfirm() {
+    try {
+      if (this._confirmAction) await this._confirmAction();
     } catch (e: any) {
       this._toast("error", e.message);
     }
+    this._showConfirm = false;
+    this._confirmAction = null;
   }
 
   private _renderConfirmDialog() {
     if (!this._showConfirm) return nothing;
     return html`
-      <ms-dialog .open=${true} headerTitle="Confirm Clear Topics" @closed=${() => this._showConfirm = false}>
-        <p>${this._deleteMessage}</p>
-        <p style="margin-top: var(--ha-space-3, 12px); font-size: var(--ha-font-size-s, 12px); color: var(--secondary-text-color);">
-          <strong>Scope:</strong> ${this._deleteScope}
-          ${this._deleteDevice ? html`<br><strong>Device:</strong> ${this._deleteDevice}` : nothing}
-          ${this._deleteEntity ? html`<br><strong>Entity:</strong> ${this._deleteEntity}` : nothing}
+      <ms-dialog .open=${true} headerTitle="Confirm Delete" @closed=${() => this._showConfirm = false}>
+        <p>${this._confirmMessage}</p>
+        <p style="margin-top:8px;font-size:12px;color:var(--secondary-text-color)">
+          This will publish empty retained messages to clear the topic(s) from the broker.
         </p>
         <ms-button slot="footer" variant="neutral" appearance="plain" @click=${() => this._showConfirm = false}>Cancel</ms-button>
-        <ms-button slot="footer" variant="danger" @click=${this._executeDelete}>Clear Topics</ms-button>
+        <ms-button slot="footer" variant="danger" @click=${this._executeConfirm}>Delete</ms-button>
       </ms-dialog>
     `;
   }

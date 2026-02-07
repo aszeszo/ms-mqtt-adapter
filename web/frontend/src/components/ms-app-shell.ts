@@ -145,6 +145,8 @@ export class MsAppShell extends LitElement {
         return html`<ms-view-aliases></ms-view-aliases>`;
       case "logs":
         return html`<ms-view-logs></ms-view-logs>`;
+      case "traffic":
+        return html`<ms-view-traffic></ms-view-traffic>`;
       case "editor":
         return html`<ms-view-editor></ms-view-editor>`;
       default:

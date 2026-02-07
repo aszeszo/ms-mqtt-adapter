@@ -382,11 +382,18 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 			return fmt.Errorf("failed to marshal entity config: %w", err)
 		}
 
-		discoveryTopic := fmt.Sprintf("homeassistant/%s/%s/config", entityType, entity.GetEffectiveUniqueID(device.ID))
+		discoveryTopic := fmt.Sprintf("%s/%s/%s/config", c.adapterCfg.DiscoveryPrefix, entityType, entity.GetEffectiveUniqueID(device.ID))
 		if err := c.Publish(discoveryTopic, string(configJSON), true); err != nil {
 			return fmt.Errorf("failed to publish entity discovery: %w", err)
 		}
 		c.logger.Debug("Published/updated Home Assistant discovery for entity", "device", device.Name, "entity", entity.Name, "topic", discoveryTopic)
+
+		// Publish availability status as "online" (unless disabled)
+		if entity.AvailabilityTopic != "none" {
+			if err := c.PublishEntityAvailability(device, entity, true); err != nil {
+				return fmt.Errorf("failed to publish entity availability: %w", err)
+			}
+		}
 
 		// Publish initial state for entities that can report state if no state already exists
 		if entity.CanReportState() {
@@ -440,6 +447,27 @@ func (c *Client) PublishEntityState(device config.Device, entity config.Entity, 
 	c.stateMu.Unlock()
 
 	return c.Publish(deviceStateTopic, value, true)
+}
+
+// PublishEntityAvailability publishes the availability status of an entity
+func (c *Client) PublishEntityAvailability(device config.Device, entity config.Entity, available bool) error {
+	uniqueID := entity.GetEffectiveUniqueID(device.ID)
+	availabilityTopic := fmt.Sprintf("%s/entity/%s/availability", c.adapterCfg.TopicPrefix, uniqueID)
+
+	payload := "offline"
+	if available {
+		payload = "online"
+	}
+
+	// Use custom payloads if specified
+	if available && entity.PayloadAvailable != "" {
+		payload = entity.PayloadAvailable
+	} else if !available && entity.PayloadNotAvailable != "" {
+		payload = entity.PayloadNotAvailable
+	}
+
+	c.logger.Debug("Publishing entity availability", "device", device.Name, "entity", entity.Name, "topic", availabilityTopic, "payload", payload)
+	return c.Publish(availabilityTopic, payload, true)
 }
 
 // createEntityDiscoveryConfig creates Home Assistant discovery configuration for entities
@@ -640,11 +668,13 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 	}
 
 	// Availability configuration
-	// If AvailabilityTopic is explicitly set to empty string, skip availability configuration entirely
-	// Otherwise use either "default" or custom topic
-	if entity.AvailabilityTopic != "" {
+	// If AvailabilityTopic is "none", skip availability configuration entirely (assume always available)
+	// If empty (not set), use default auto-generated topic
+	// If "default", use default auto-generated topic
+	// Otherwise use custom topic
+	if entity.AvailabilityTopic != "none" {
 		var availabilityTopic string
-		if entity.AvailabilityTopic == "default" {
+		if entity.AvailabilityTopic == "" || entity.AvailabilityTopic == "default" {
 			// Use default availability topic
 			uniqueID := entity.GetEffectiveUniqueID(device.ID)
 			availabilityTopic = fmt.Sprintf("%s/entity/%s/availability", c.adapterCfg.TopicPrefix, uniqueID)
@@ -666,22 +696,7 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 
 		c.logger.Debug("Entity availability topic configured", "device", device.Name, "entity", entity.Name, "topic", availabilityTopic)
 	} else {
-		// Availability topic not set - use default auto-generated topic
-		uniqueID := entity.GetEffectiveUniqueID(device.ID)
-		availabilityTopic := fmt.Sprintf("%s/entity/%s/availability", c.adapterCfg.TopicPrefix, uniqueID)
-		discoveryConfig["availability_topic"] = availabilityTopic
-		if entity.PayloadAvailable != "" {
-			discoveryConfig["payload_available"] = entity.PayloadAvailable
-		} else {
-			discoveryConfig["payload_available"] = "online"
-		}
-		if entity.PayloadNotAvailable != "" {
-			discoveryConfig["payload_not_available"] = entity.PayloadNotAvailable
-		} else {
-			discoveryConfig["payload_not_available"] = "offline"
-		}
-
-		c.logger.Debug("Entity availability topic configured (default)", "device", device.Name, "entity", entity.Name, "topic", availabilityTopic)
+		c.logger.Debug("Entity availability disabled (always available)", "device", device.Name, "entity", entity.Name)
 	}
 
 	// Template configuration
@@ -773,7 +788,17 @@ func (c *Client) PublishPresentationMessage(topicPrefix, gatewayName string, nod
 func (c *Client) Reconfigure(cfg *config.MQTTConfig, adapterCfg *config.AdapterConfig, devices []config.Device) error {
 	c.config = cfg
 	c.adapterCfg = adapterCfg
+	oldDevices := c.devices
 	c.devices = devices
+
+	// Skip resubscription if not connected - will resubscribe on reconnect via OnConnectHandler
+	if !c.client.IsConnected() {
+		c.logger.Info("MQTT client not connected, will resubscribe on reconnect")
+		return nil
+	}
+
+	// Unsubscribe from old device topics before resubscribing
+	c.unsubscribeDevices(oldDevices)
 
 	// Resubscribe to device topics with new configuration
 	if err := c.subscribeToDevices(); err != nil {
@@ -789,6 +814,28 @@ func (c *Client) Reconfigure(cfg *config.MQTTConfig, adapterCfg *config.AdapterC
 	return nil
 }
 
+// unsubscribeDevices unsubscribes from all entity topics for the given device list
+func (c *Client) unsubscribeDevices(devices []config.Device) {
+	for _, device := range devices {
+		for _, entity := range device.Entities {
+			uniqueID := entity.GetEffectiveUniqueID(device.ID)
+
+			if entity.CanReceiveCommands() {
+				topic := fmt.Sprintf("%s/entity/%s/set", c.adapterCfg.TopicPrefix, uniqueID)
+				token := c.client.Unsubscribe(topic)
+				token.WaitTimeout(5 * time.Second)
+			}
+
+			if entity.CanReportState() {
+				stateTopic := fmt.Sprintf("%s/entity/%s/state", c.adapterCfg.TopicPrefix, uniqueID)
+				token := c.client.Unsubscribe(stateTopic)
+				token.WaitTimeout(5 * time.Second)
+			}
+		}
+	}
+	c.logger.Debug("Unsubscribed from old device topics", "device_count", len(devices))
+}
+
 // GetTopicList returns all MQTT topics managed by this adapter (implements MQTTClientProvider)
 func (c *Client) GetTopicList(gateways map[string]config.MySensorsConfig) interface{} {
 	return c.GetAllTopics(gateways)
@@ -797,4 +844,103 @@ func (c *Client) GetTopicList(gateways map[string]config.MySensorsConfig) interf
 // DeleteTopics clears MQTT topics based on scope (implements MQTTClientProvider)
 func (c *Client) DeleteTopics(scope, deviceID, entityID string, gateways map[string]config.MySensorsConfig) error {
 	return c.ClearTopics(scope, deviceID, entityID, gateways)
+}
+
+// BrowseAllTopics subscribes to # and collects all messages for the given timeout duration.
+func (c *Client) BrowseAllTopics(timeout time.Duration) (any, error) {
+	if !c.client.IsConnected() {
+		return nil, fmt.Errorf("MQTT client not connected")
+	}
+
+	var mu sync.Mutex
+	collected := make(map[string]BrokerTopic)
+
+	handler := func(client mqtt.Client, msg mqtt.Message) {
+		mu.Lock()
+		collected[msg.Topic()] = BrokerTopic{
+			Topic:    msg.Topic(),
+			Payload:  string(msg.Payload()),
+			Retained: msg.Retained(),
+		}
+		mu.Unlock()
+	}
+
+	token := c.client.Subscribe("#", 0, handler)
+	if !token.WaitTimeout(5 * time.Second) {
+		return nil, fmt.Errorf("subscribe to # timed out")
+	}
+	if token.Error() != nil {
+		return nil, fmt.Errorf("subscribe to # failed: %w", token.Error())
+	}
+
+	time.Sleep(timeout)
+
+	unsubToken := c.client.Unsubscribe("#")
+	unsubToken.WaitTimeout(5 * time.Second)
+
+	mu.Lock()
+	result := make([]BrokerTopic, 0, len(collected))
+	for _, t := range collected {
+		result = append(result, t)
+	}
+	mu.Unlock()
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Topic < result[j].Topic
+	})
+
+	return result, nil
+}
+
+// DeleteRetainedTopic clears a single retained message by publishing empty payload with retain flag.
+func (c *Client) DeleteRetainedTopic(topic string) error {
+	return c.Publish(topic, "", true)
+}
+
+// DeleteRetainedTree subscribes to prefix/# to discover all retained topics under a prefix,
+// then publishes empty retained messages to clear them. Returns the count of deleted topics.
+func (c *Client) DeleteRetainedTree(prefix string, timeout time.Duration) (int, error) {
+	if !c.client.IsConnected() {
+		return 0, fmt.Errorf("MQTT client not connected")
+	}
+
+	var mu sync.Mutex
+	var retainedTopics []string
+
+	subTopic := prefix + "/#"
+	handler := func(client mqtt.Client, msg mqtt.Message) {
+		if msg.Retained() {
+			mu.Lock()
+			retainedTopics = append(retainedTopics, msg.Topic())
+			mu.Unlock()
+		}
+	}
+
+	token := c.client.Subscribe(subTopic, 0, handler)
+	if !token.WaitTimeout(5 * time.Second) {
+		return 0, fmt.Errorf("subscribe to %s timed out", subTopic)
+	}
+	if token.Error() != nil {
+		return 0, fmt.Errorf("subscribe to %s failed: %w", subTopic, token.Error())
+	}
+
+	time.Sleep(timeout)
+
+	unsubToken := c.client.Unsubscribe(subTopic)
+	unsubToken.WaitTimeout(5 * time.Second)
+
+	mu.Lock()
+	topics := make([]string, len(retainedTopics))
+	copy(topics, retainedTopics)
+	mu.Unlock()
+
+	for _, t := range topics {
+		if err := c.Publish(t, "", true); err != nil {
+			c.logger.Error("Failed to delete retained topic", "topic", t, "error", err)
+			return 0, err
+		}
+	}
+
+	c.logger.Info("Deleted retained topic tree", "prefix", prefix, "count", len(topics))
+	return len(topics), nil
 }

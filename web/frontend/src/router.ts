@@ -1,8 +1,8 @@
-export type Route = "dashboard" | "devices" | "gateways" | "mqtt" | "aliases" | "editor" | "logs" | "mqtt-topics";
+export type Route = "dashboard" | "devices" | "gateways" | "mqtt" | "aliases" | "editor" | "logs" | "mqtt-topics" | "traffic";
 
 export function currentRoute(): Route {
   const h = location.hash.replace("#", "") || "dashboard";
-  const valid: Route[] = ["dashboard", "devices", "gateways", "mqtt", "aliases", "editor", "logs", "mqtt-topics"];
+  const valid: Route[] = ["dashboard", "devices", "gateways", "mqtt", "aliases", "editor", "logs", "mqtt-topics", "traffic"];
   return valid.includes(h as Route) ? (h as Route) : "dashboard";
 }
 

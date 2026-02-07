@@ -27,6 +27,9 @@ type StatusProvider interface {
 type MQTTClientProvider interface {
 	GetTopicList(gateways map[string]config.MySensorsConfig) interface{}
 	DeleteTopics(scope, deviceID, entityID string, gateways map[string]config.MySensorsConfig) error
+	BrowseAllTopics(timeout time.Duration) (any, error)
+	DeleteRetainedTopic(topic string) error
+	DeleteRetainedTree(prefix string, timeout time.Duration) (int, error)
 }
 
 type TransportStatus struct {
@@ -44,6 +47,7 @@ type GatewayStatus struct {
 	SeenNodes        []int
 	NodeAvailability map[int]bool
 	LastSeenNodeID   int
+	LastIssuedNodeID int
 }
 
 // Server is the HTTP/WebSocket server for the REST API and web dashboard.
@@ -110,6 +114,7 @@ func NewServer(port int, provider StatusProvider, bus *EventBus, logStreamer Log
 	// --- WebSocket ---
 	mux.HandleFunc("/ws/events", handleWebSocket(provider, bus, logger))
 	mux.HandleFunc("/ws/logs", handleLogStream(logStreamer, logger))
+	mux.HandleFunc("/ws/traffic", handleTrafficWebSocket(bus, logger))
 
 	// --- Frontend static files ---
 	if staticFS != nil {

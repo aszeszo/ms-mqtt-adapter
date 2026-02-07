@@ -180,13 +180,25 @@ export class MsViewDevices extends LitElement {
         <div class="quick-add">
           <span class="quick-add-label">Quick Add:</span>
           <ms-button appearance="outlined" variant="neutral" @click=${this._addNippyRelay9}>
-            Nippy Relay 9
+            nippy DIN Relay 9
           </ms-button>
           <ms-button appearance="outlined" variant="neutral" @click=${this._addNippyRelay3}>
-            Nippy Relay 3
+            nippy DIN Relay 3
           </ms-button>
           <ms-button appearance="outlined" variant="neutral" @click=${this._addNippyInput6}>
-            Nippy Input 6
+            nippy DIN Input 6
+          </ms-button>
+          <ms-button appearance="outlined" variant="neutral" @click=${this._addNippyInput6LP}>
+            nippy DIN Input 6 LP
+          </ms-button>
+          <ms-button appearance="outlined" variant="neutral" @click=${this._addNippyRS485Gateway}>
+            nippy RS-485 Gateway v1
+          </ms-button>
+          <ms-button appearance="outlined" variant="neutral" @click=${this._addNippyRelay9AutoSync}>
+            nippy DIN Relay 9 (auto-sync)
+          </ms-button>
+          <ms-button appearance="outlined" variant="neutral" @click=${this._addNippyRelay3AutoSync}>
+            nippy DIN Relay 3 (auto-sync)
           </ms-button>
         </div>
         <ms-button @click=${this._addDevice}>Add Device</ms-button>
@@ -288,8 +300,8 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: nodeId,
-      manufacturer: "Nippy",
-      model: "Relay 9",
+      manufacturer: "nippy",
+      model: "DIN Relay 9",
       sw_version: "1.0",
       hw_version: "1.0",
       entities: [
@@ -328,21 +340,21 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: nodeId,
-      manufacturer: "Nippy",
-      model: "Relay 3",
+      manufacturer: "nippy",
+      model: "DIN Relay 3",
       sw_version: "1.0",
       hw_version: "1.0",
       entities: [
-        { name: "Ambient temperature", id: "ambient_temperature", child_id: 9, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
-        { name: "P2P Toggle", id: "p2p_toggle", child_id: 10, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch" },
         ...Array.from({ length: 3 }, (_, i) => ({
           name: `Relay ${i + 1}`,
           id: `relay_${i + 1}`,
-          child_id: `ch${i}`,
+          child_id: `relay3_ch${i}`,
           entity_type: "switch",
           initial_value: "0",
           icon: "hue:socket-eu"
-        }))
+        })),
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 3, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
+        { name: "P2P Toggle", id: "p2p_toggle", child_id: 4, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch" },
       ]
     };
     try {
@@ -350,6 +362,88 @@ export class MsViewDevices extends LitElement {
       await api.putDevices(devices);
       await this._load();
       this._toast("success", `Added ${name} device`);
+    } catch (e: any) {
+      this._toast("error", e.message);
+    }
+  }
+
+  private async _addNippyRelay9AutoSync() {
+    const suffix = this._generateRandomSuffix();
+    const suggestedName = `nippy_relay9_${suffix}`;
+    const name = prompt("Enter device name:", suggestedName);
+    if (!name) return;
+
+    await this._ensureRelay9Aliases();
+    const deviceId = name;
+    const nodeId = this._getRandomAvailableNodeId();
+    const device = {
+      name: name,
+      id: deviceId,
+      node_id: nodeId,
+      manufacturer: "nippy",
+      model: "DIN Relay 9",
+      sw_version: "1.0",
+      hw_version: "1.0",
+      entities: [
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 9, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
+        { name: "P2P Toggle", id: "p2p_toggle", child_id: 10, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch" },
+        ...Array.from({ length: 9 }, (_, i) => ({
+          name: `Relay ${i + 1}`,
+          id: `relay_${i + 1}`,
+          child_id: `relay9_ch${i}`,
+          entity_type: "switch",
+          initial_value: "0",
+          icon: "hue:socket-eu",
+          sync_period: 30 * 1e9  // 30 seconds
+        }))
+      ]
+    };
+    try {
+      const devices = [...this._devices, device];
+      await api.putDevices(devices);
+      await this._load();
+      this._toast("success", `Added ${name} device with auto-sync`);
+    } catch (e: any) {
+      this._toast("error", e.message);
+    }
+  }
+
+  private async _addNippyRelay3AutoSync() {
+    const suffix = this._generateRandomSuffix();
+    const suggestedName = `nippy_relay3_${suffix}`;
+    const name = prompt("Enter device name:", suggestedName);
+    if (!name) return;
+
+    await this._ensureRelay3Aliases();
+    const deviceId = name;
+    const nodeId = this._getRandomAvailableNodeId();
+    const device = {
+      name: name,
+      id: deviceId,
+      node_id: nodeId,
+      manufacturer: "nippy",
+      model: "DIN Relay 3",
+      sw_version: "1.0",
+      hw_version: "1.0",
+      entities: [
+        ...Array.from({ length: 3 }, (_, i) => ({
+          name: `Relay ${i + 1}`,
+          id: `relay_${i + 1}`,
+          child_id: `relay3_ch${i}`,
+          entity_type: "switch",
+          initial_value: "0",
+          icon: "hue:socket-eu",
+          sync_period: 30 * 1e9  // 30 seconds
+        })),
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 3, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
+        { name: "P2P Toggle", id: "p2p_toggle", child_id: 4, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch" },
+      ]
+    };
+    try {
+      const devices = [...this._devices, device];
+      await api.putDevices(devices);
+      await this._load();
+      this._toast("success", `Added ${name} device with auto-sync`);
     } catch (e: any) {
       this._toast("error", e.message);
     }
@@ -367,31 +461,12 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: nodeId,
-      manufacturer: "Nippy",
-      model: "Input 6",
-      sw_version: "1.0",
+      manufacturer: "nippy",
+      model: "DIN Input 6",
+      sw_version: "1.9.36",
       hw_version: "1.0",
       entities: [
-        { name: "Ambient temperature", id: "ambient_temperature", child_id: 37, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
-        { name: "MSG Int. (0-255 ms)", id: "msg_int", child_id: 38, entity_type: "text", initial_value: "200", entity_category: "config", icon: "mdi:clock-edit" },
-        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
-          name: `${letter} Target`,
-          id: `${letter.toLowerCase()}_target`,
-          child_id: 6 + idx,
-          entity_type: "text",
-          initial_value: "0",
-          entity_category: "config",
-          icon: "mdi:target"
-        })),
-        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
-          name: `${letter} Target Child`,
-          id: `${letter.toLowerCase()}_target_child`,
-          child_id: 12 + idx,
-          entity_type: "text",
-          initial_value: "0",
-          entity_category: "config",
-          icon: "mdi:target-variant"
-        })),
+        // Regular inputs (child 0-5)
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
           name: `Input ${letter}`,
           id: `input_${letter.toLowerCase()}`,
@@ -399,7 +474,159 @@ export class MsViewDevices extends LitElement {
           entity_type: "binary_sensor",
           read_only: true,
           icon: "hue:friends-of-hue-senic"
-        }))
+        })),
+        // Target configs (child 6-11) - internal
+        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
+          name: `${letter} Target`,
+          id: `${letter.toLowerCase()}_target`,
+          child_id: 6 + idx,
+          entity_type: "text",
+          initial_value: "0",
+          entity_category: "config",
+          object_id: "",
+          icon: "mdi:target"
+        })),
+        // Target child configs (child 12-17) - internal
+        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
+          name: `${letter} Target child`,
+          id: `${letter.toLowerCase()}_target_child`,
+          child_id: 12 + idx,
+          entity_type: "text",
+          initial_value: "0",
+          entity_category: "config",
+          object_id: "",
+          icon: "mdi:target-variant"
+        })),
+        // Ambient temperature (child 37)
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 37, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
+        // MSG Interval config (child 38) - internal
+        { name: "MSG Int. (0-255 ms)", id: "msg_int", child_id: 38, entity_type: "text", initial_value: "200", entity_category: "config", object_id: "", icon: "mdi:clock-edit" },
+      ]
+    };
+    try {
+      const devices = [...this._devices, device];
+      await api.putDevices(devices);
+      await this._load();
+      this._toast("success", `Added ${name} device`);
+    } catch (e: any) {
+      this._toast("error", e.message);
+    }
+  }
+
+  private async _addNippyInput6LP() {
+    const suffix = this._generateRandomSuffix();
+    const suggestedName = `nippy_input6lp_${suffix}`;
+    const name = prompt("Enter device name:", suggestedName);
+    if (!name) return;
+
+    const deviceId = name;
+    const nodeId = this._getRandomAvailableNodeId();
+    const device = {
+      name: name,
+      id: deviceId,
+      node_id: nodeId,
+      manufacturer: "nippy",
+      model: "DIN Input 6 LP",
+      sw_version: "1.9.36",
+      hw_version: "1.0",
+      entities: [
+        // Regular inputs (child 0-5)
+        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
+          name: `Input ${letter}`,
+          id: `input_${letter.toLowerCase()}`,
+          child_id: idx,
+          entity_type: "binary_sensor",
+          read_only: true,
+          icon: "hue:friends-of-hue-senic"
+        })),
+        // Target configs (child 6-11) - internal
+        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
+          name: `${letter} Target`,
+          id: `${letter.toLowerCase()}_target`,
+          child_id: 6 + idx,
+          entity_type: "text",
+          initial_value: "0",
+          entity_category: "config",
+          object_id: "",
+          icon: "mdi:target"
+        })),
+        // Target child configs (child 12-17) - internal
+        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
+          name: `${letter} Target child`,
+          id: `${letter.toLowerCase()}_target_child`,
+          child_id: 12 + idx,
+          entity_type: "text",
+          initial_value: "0",
+          entity_category: "config",
+          object_id: "",
+          icon: "mdi:target-variant"
+        })),
+        // LP Target configs (child 18-23) - internal
+        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
+          name: `${letter} LP Target`,
+          id: `${letter.toLowerCase()}_lp_target`,
+          child_id: 18 + idx,
+          entity_type: "text",
+          initial_value: "0",
+          entity_category: "config",
+          object_id: "",
+          icon: "mdi:target-variant"
+        })),
+        // LP Target child configs (child 24-29) - internal
+        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
+          name: `${letter} LP Target child`,
+          id: `${letter.toLowerCase()}_lp_target_child`,
+          child_id: 24 + idx,
+          entity_type: "text",
+          initial_value: "0",
+          entity_category: "config",
+          object_id: "",
+          icon: "mdi:target-variant"
+        })),
+        // LP inputs (child 30-35)
+        ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
+          name: `Input LP ${letter}`,
+          id: `input_lp_${letter.toLowerCase()}`,
+          child_id: 30 + idx,
+          entity_type: "binary_sensor",
+          read_only: true,
+          icon: "hue:friends-of-hue-senic"
+        })),
+        // LP Time config (child 36) - internal
+        { name: "LP Time (1-5 s)", id: "lp_time", child_id: 36, entity_type: "text", initial_value: "3", entity_category: "config", object_id: "", icon: "mdi:timer" },
+        // Ambient temperature (child 37)
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 37, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
+        // MSG Interval config (child 38) - internal
+        { name: "MSG Int. (0-255 ms)", id: "msg_int", child_id: 38, entity_type: "text", initial_value: "200", entity_category: "config", object_id: "", icon: "mdi:clock-edit" },
+      ]
+    };
+    try {
+      const devices = [...this._devices, device];
+      await api.putDevices(devices);
+      await this._load();
+      this._toast("success", `Added ${name} device`);
+    } catch (e: any) {
+      this._toast("error", e.message);
+    }
+  }
+
+  private async _addNippyRS485Gateway() {
+    const suffix = this._generateRandomSuffix();
+    const suggestedName = `nippy_rs485gw_${suffix}`;
+    const name = prompt("Enter device name:", suggestedName);
+    if (!name) return;
+
+    const deviceId = name;
+    const device = {
+      name: name,
+      id: deviceId,
+      node_id: 0,
+      manufacturer: "nippy",
+      model: "RS-485 Gateway",
+      sw_version: "2.3.2",
+      hw_version: "1.0",
+      entities: [
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 1, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer", availability_topic: "none" },
       ]
     };
     try {
@@ -436,7 +663,7 @@ export class MsViewDevices extends LitElement {
 
   private async _ensureRelay3Aliases() {
     const relay3Aliases: Record<string, number> = {
-      ch0: 0, ch1: 1, ch2: 2,
+      relay3_ch0: 0, relay3_ch1: 1, relay3_ch2: 2,
     };
     const missing = Object.keys(relay3Aliases).filter(k => !(k in this._aliases));
     if (missing.length > 0) {

@@ -5,6 +5,13 @@ import (
 	"ms-mqtt-adapter/pkg/config"
 )
 
+// BrokerTopic represents a topic discovered directly from the MQTT broker
+type BrokerTopic struct {
+	Topic    string `json:"topic"`
+	Payload  string `json:"payload"`
+	Retained bool   `json:"retained"`
+}
+
 type TopicInfo struct {
 	Topic    string `json:"topic"`
 	Type     string `json:"type"` // state, command, availability, discovery, gateway
@@ -64,7 +71,7 @@ func (c *Client) GetAllTopics(gateways map[string]config.MySensorsConfig) TopicL
 			// Discovery topic
 			entityType := entity.GetHAEntityType()
 			list.DiscoveryTopics = append(list.DiscoveryTopics, TopicInfo{
-				Topic:    fmt.Sprintf("homeassistant/%s/%s/config", entityType, uniqueID),
+				Topic:    fmt.Sprintf("%s/%s/%s/config", c.adapterCfg.DiscoveryPrefix, entityType, uniqueID),
 				Type:     "discovery",
 				DeviceID: device.ID,
 				EntityID: entity.ID,
@@ -129,8 +136,9 @@ func (c *Client) getTopicsToDelete(scope, deviceID, entityID string, gateways ma
 					uniqueID := entity.GetEffectiveUniqueID(device.ID)
 					topics = append(topics,
 						fmt.Sprintf("%s/entity/%s/state", c.adapterCfg.TopicPrefix, uniqueID),
+						fmt.Sprintf("%s/entity/%s/set", c.adapterCfg.TopicPrefix, uniqueID),
 						fmt.Sprintf("%s/entity/%s/availability", c.adapterCfg.TopicPrefix, uniqueID),
-						fmt.Sprintf("homeassistant/%s/%s/config", entity.GetHAEntityType(), uniqueID),
+						fmt.Sprintf("%s/%s/%s/config", c.adapterCfg.DiscoveryPrefix, entity.GetHAEntityType(), uniqueID),
 					)
 				}
 			}
@@ -144,8 +152,9 @@ func (c *Client) getTopicsToDelete(scope, deviceID, entityID string, gateways ma
 						uniqueID := entity.GetEffectiveUniqueID(device.ID)
 						topics = append(topics,
 							fmt.Sprintf("%s/entity/%s/state", c.adapterCfg.TopicPrefix, uniqueID),
+							fmt.Sprintf("%s/entity/%s/set", c.adapterCfg.TopicPrefix, uniqueID),
 							fmt.Sprintf("%s/entity/%s/availability", c.adapterCfg.TopicPrefix, uniqueID),
-							fmt.Sprintf("homeassistant/%s/%s/config", entity.GetHAEntityType(), uniqueID),
+							fmt.Sprintf("%s/%s/%s/config", c.adapterCfg.DiscoveryPrefix, entity.GetHAEntityType(), uniqueID),
 						)
 					}
 				}

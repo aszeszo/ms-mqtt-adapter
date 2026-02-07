@@ -2,3 +2,4 @@
 /.envrc
 /web/frontend/node_modules/
 /web/dist/
+/config.yaml

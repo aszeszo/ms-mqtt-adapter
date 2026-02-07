@@ -68,6 +68,7 @@ type GatewayConfig struct {
 
 type AdapterConfig struct {
 	TopicPrefix            string `yaml:"topic_prefix" json:"topic_prefix"`
+	DiscoveryPrefix        string `yaml:"discovery_prefix" json:"discovery_prefix"`
 	HomeAssistantDiscovery *bool  `yaml:"homeassistant_discovery,omitempty" json:"homeassistant_discovery,omitempty"`
 }
 
@@ -203,6 +204,32 @@ func SaveConfig(cfg *Config, path string) error {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 	return nil
+}
+
+// ConfigCompleteness represents the completeness status of the configuration
+type ConfigCompleteness struct {
+	Complete      bool     `json:"complete"`
+	MissingFields []string `json:"missing_fields"`
+}
+
+// CheckConfigCompleteness checks if all required config fields are present
+func CheckConfigCompleteness(config *Config) ConfigCompleteness {
+	var missing []string
+
+	// Check MySensors gateways
+	if len(config.MySensors) == 0 {
+		missing = append(missing, "mysensors (at least one gateway required)")
+	}
+
+	// Check MQTT broker
+	if config.MQTT.Broker == "" {
+		missing = append(missing, "mqtt.broker")
+	}
+
+	return ConfigCompleteness{
+		Complete:      len(missing) == 0,
+		MissingFields: missing,
+	}
 }
 
 func ValidateConfig(config *Config) error {
@@ -900,6 +927,10 @@ func SetDefaults(config *Config) {
 
 	if config.AdapterTopics.TopicPrefix == "" {
 		config.AdapterTopics.TopicPrefix = "ms-mqtt-adapter"
+	}
+
+	if config.AdapterTopics.DiscoveryPrefix == "" {
+		config.AdapterTopics.DiscoveryPrefix = "homeassistant"
 	}
 
 	// Default to enabling HomeAssistant discovery if not explicitly set

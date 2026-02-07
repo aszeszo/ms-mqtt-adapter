@@ -94,10 +94,10 @@ export class MsViewAliases extends LitElement {
       <div class="bulk-actions">
         <span class="bulk-actions-label">Quick Add:</span>
         <ms-button appearance="outlined" variant="neutral" @click=${this._addRelay9Aliases}>
-          Nippy Relay 9 Aliases
+          nippy DIN Relay 9 Aliases
         </ms-button>
         <ms-button appearance="outlined" variant="neutral" @click=${this._addRelay3Aliases}>
-          Nippy Relay 3 Aliases
+          nippy DIN Relay 3 Aliases
         </ms-button>
       </div>
       <table>

@@ -375,6 +375,18 @@ func (s *Server) handleDeleteDevice(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "device not found")
 		return
 	}
+
+	// Delete MQTT topics for this device before removing from config
+	mqttClient := s.provider.GetMQTTClient()
+	if mqttClient != nil {
+		if err := mqttClient.DeleteTopics("device", id, "", cfg.MySensors); err != nil {
+			s.logger.Error("Failed to delete MQTT topics for device", "device", id, "error", err)
+			// Continue with device deletion even if topic deletion fails
+		} else {
+			s.logger.Info("Deleted MQTT topics for device", "device", id)
+		}
+	}
+
 	cfg.Devices = append(cfg.Devices[:idx], cfg.Devices[idx+1:]...)
 	if err := s.saveConfig(cfg); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -512,6 +524,18 @@ func (s *Server) handleDeleteEntity(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "entity not found")
 		return
 	}
+
+	// Delete MQTT topics for this entity before removing from config
+	mqttClient := s.provider.GetMQTTClient()
+	if mqttClient != nil {
+		if err := mqttClient.DeleteTopics("entity", id, eid, cfg.MySensors); err != nil {
+			s.logger.Error("Failed to delete MQTT topics for entity", "device", id, "entity", eid, "error", err)
+			// Continue with entity deletion even if topic deletion fails
+		} else {
+			s.logger.Info("Deleted MQTT topics for entity", "device", id, "entity", eid)
+		}
+	}
+
 	entities := cfg.Devices[dIdx].Entities
 	cfg.Devices[dIdx].Entities = append(entities[:eIdx], entities[eIdx+1:]...)
 	if err := s.saveConfig(cfg); err != nil {

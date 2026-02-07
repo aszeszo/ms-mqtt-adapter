@@ -177,14 +177,15 @@ func (rt *RS485Transport) readLoop() {
 }
 
 // Reconfigure updates the RS485 transport configuration
-func (rt *RS485Transport) Reconfigure(device string, baudRate int) {
+func (rt *RS485Transport) Reconfigure(device string, baudRate int) bool {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 
-	// Only update if configuration has changed
 	if rt.device != device || rt.baudRate != baudRate {
 		rt.device = device
 		rt.baudRate = baudRate
 		rt.logger.Info("RS485 transport reconfigured", "device", device, "baud", baudRate)
+		return true
 	}
+	return false
 }

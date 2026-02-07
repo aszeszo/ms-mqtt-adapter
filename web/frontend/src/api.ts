@@ -70,10 +70,6 @@ export const api = {
 
   // MQTT Topics
   getMQTTTopics: () => request<any>("GET", "/api/mqtt/topics"),
-  deleteMQTTTopics: (scope: string, deviceId?: string, entityId?: string) =>
-    request<any>("DELETE", "/api/mqtt/topics", {
-      scope,
-      device_id: deviceId,
-      entity_id: entityId,
-    }),
+  deleteMQTTTopics: (body: { topics?: string[]; prefix?: string; scope?: string; device_id?: string; entity_id?: string }) =>
+    request<any>("DELETE", "/api/mqtt/topics", body),
 };

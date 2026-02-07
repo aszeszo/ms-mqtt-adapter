@@ -70,6 +70,7 @@ export class MsViewMqtt extends LitElement {
 
   private _adapterSchema: FormSchema[] = [
     { name: "topic_prefix", label: "Topic Prefix", type: "string" },
+    { name: "discovery_prefix", label: "Discovery Prefix", type: "string" },
     { name: "homeassistant_discovery", label: "HA Discovery", type: "boolean" },
   ];
 
@@ -84,6 +85,7 @@ export class MsViewMqtt extends LitElement {
               .schema=${this._adapterSchema}
               .data=${{
                 topic_prefix: this._adapter.topic_prefix || "",
+                discovery_prefix: this._adapter.discovery_prefix || "homeassistant",
                 homeassistant_discovery: this._adapter.homeassistant_discovery ?? true,
               }}
               @value-changed=${(e: CustomEvent) => {

@@ -59,6 +59,18 @@ export class MsViewDashboard extends LitElement {
       padding: var(--ha-space-8, 32px);
       color: var(--secondary-text-color);
     }
+    .config-warning {
+      margin-bottom: var(--ha-space-4, 16px);
+    }
+    .missing-list {
+      margin: var(--ha-space-3, 12px) 0 0 0;
+      padding-left: var(--ha-space-5, 20px);
+    }
+    .missing-list li {
+      margin: var(--ha-space-1, 4px) 0;
+      font-family: var(--ha-font-family-code, monospace);
+      font-size: var(--ha-font-size-s, 12px);
+    }
   `;
 
   connectedCallback() {
@@ -103,8 +115,28 @@ export class MsViewDashboard extends LitElement {
 
     const s = this._status;
     const entityCount = s?.entities ? Object.keys(s.entities).length : 0;
+    const configStatus = s?.config_status;
 
     return html`
+      ${configStatus && !configStatus.complete
+        ? html`
+            <div class="config-warning">
+              <ms-alert alertType="warning" title="Configuration Incomplete">
+                <p>
+                  The adapter configuration is incomplete. Please configure the
+                  following required settings via the
+                  <strong>MQTT</strong> and <strong>Gateways</strong> tabs:
+                </p>
+                <ul class="missing-list">
+                  ${configStatus.missing_fields.map(
+                    (field: string) => html`<li>${field}</li>`
+                  )}
+                </ul>
+              </ms-alert>
+            </div>
+          `
+        : nothing}
+
       <div class="summary">
         <span>Entities: ${entityCount}</span>
         <span
@@ -165,12 +197,8 @@ export class MsViewDashboard extends LitElement {
               <span class="kv-value">${gw.transport || "N/A"}</span>
             </div>
             <div class="kv">
-              <span class="kv-label">Last Seen Node</span>
-              <span class="kv-value">${gw.last_seen_node_id || "N/A"}</span>
-            </div>
-            <div class="kv">
-              <span class="kv-label">Seen Nodes</span>
-              <span class="kv-value">${gw.seen_nodes?.join(" ") || "None"}</span>
+              <span class="kv-label">Last Issued ID</span>
+              <span class="kv-value">${gw.last_issued_node_id || "N/A"}</span>
             </div>
             ${gw.seen_nodes?.length
               ? html`

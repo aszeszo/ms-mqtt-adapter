@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"ms-mqtt-adapter/pkg/config"
 	"net/http"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ const (
 	EventConnectionChanged       = "connection_changed"
 	EventConfigReloaded          = "config_reloaded"
 	EventPong                    = "pong"
+	EventMySensorsMessage        = "mysensors_message"
 )
 
 // Event is a typed message sent through the EventBus.
@@ -138,9 +140,29 @@ func handleWebSocket(provider StatusProvider, bus *EventBus, logger *slog.Logger
 }
 
 type initialState struct {
-	MQTT     mqttStatus                `json:"mqtt"`
-	Gateways map[string]gatewayStatus  `json:"gateways"`
-	Entities map[string]string         `json:"entities"`
+	MQTT         mqttStatus                `json:"mqtt"`
+	Gateways     map[string]gatewayStatus  `json:"gateways"`
+	Entities     map[string]string         `json:"entities"`
+	ConfigStatus configStatusInfo         `json:"config_status"`
+}
+
+type configStatusInfo struct {
+	Complete      bool     `json:"complete"`
+	MissingFields []string `json:"missing_fields"`
+}
+
+// MySensorsTrafficMessage represents a MySensors message for traffic monitoring
+type MySensorsTrafficMessage struct {
+	Timestamp string `json:"timestamp"`
+	Gateway   string `json:"gateway"`
+	Direction string `json:"direction"` // "rx" or "tx"
+	Raw       string `json:"raw"`
+	NodeID    int    `json:"node_id"`
+	ChildID   int    `json:"child_id"`
+	Type      string `json:"type"`
+	Ack       bool   `json:"ack"`
+	SubType   int    `json:"sub_type"`
+	Payload   string `json:"payload"`
 }
 
 type mqttStatus struct {
@@ -155,6 +177,7 @@ type gatewayStatus struct {
 	SeenNodes        []int          `json:"seen_nodes"`
 	NodeAvailability map[int]bool   `json:"node_availability"`
 	LastSeenNodeID   int            `json:"last_seen_node_id"`
+	LastIssuedNodeID int            `json:"last_issued_node_id"`
 }
 
 func buildInitialState(p StatusProvider) initialState {
@@ -169,8 +192,12 @@ func buildInitialState(p StatusProvider) initialState {
 			SeenNodes:        gs.SeenNodes,
 			NodeAvailability: gs.NodeAvailability,
 			LastSeenNodeID:   gs.LastSeenNodeID,
+			LastIssuedNodeID: gs.LastIssuedNodeID,
 		}
 	}
+
+	// Check config completeness
+	completeness := config.CheckConfigCompleteness(cfg)
 
 	return initialState{
 		MQTT: mqttStatus{
@@ -180,5 +207,60 @@ func buildInitialState(p StatusProvider) initialState {
 		},
 		Gateways: gateways,
 		Entities: p.GetEntityStates(),
+		ConfigStatus: configStatusInfo{
+			Complete:      completeness.Complete,
+			MissingFields: completeness.MissingFields,
+		},
+	}
+}
+
+// handleTrafficWebSocket streams MySensors traffic messages
+func handleTrafficWebSocket(bus *EventBus, logger *slog.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			logger.Error("WebSocket upgrade failed", "error", err)
+			return
+		}
+		defer conn.Close()
+
+		ctx, cancel := context.WithCancel(r.Context())
+		defer cancel()
+
+		// Subscribe to MySensors message events only
+		ch := bus.Subscribe()
+		defer bus.Unsubscribe(ch)
+
+		// Goroutine to read from event bus and send to WebSocket
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case evt, ok := <-ch:
+					if !ok {
+						return
+					}
+					// Only forward MySensors message events
+					if evt.Type == EventMySensorsMessage {
+						if err := conn.WriteJSON(evt); err != nil {
+							return
+						}
+					}
+				}
+			}
+		}()
+
+		// Read pump (handle client disconnect)
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				cancel()
+				break
+			}
+		}
+
+		<-done
 	}
 }
