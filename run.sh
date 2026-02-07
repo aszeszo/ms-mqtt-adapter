@@ -28,6 +28,7 @@ adapter:
   topic_prefix: ms-mqtt-adapter
   discovery_prefix: homeassistant
   homeassistant_discovery: true
+mysensors: {}
 EOF
 else
     bashio::log.info "Using existing persistent config at ${CONFIG_PATH}"

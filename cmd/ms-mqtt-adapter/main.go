@@ -38,7 +38,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "2.2.3")
+	logger.Info("Starting ms-mqtt-adapter", "version", "2.2.4")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -598,6 +598,12 @@ func (app *Application) startConnectionMonitoring(ctx context.Context) {
 								Type: api.EventConnectionChanged,
 								Data: map[string]any{"type": "mqtt", "connected": true},
 							})
+						}
+						// Publish discovery after successful reconnection
+						if err := app.publishDiscovery(); err != nil {
+							app.logger.Error("Failed to publish discovery after MQTT reconnect", "error", err)
+						} else {
+							app.logger.Info("Published discovery topics after MQTT reconnect")
 						}
 					}
 				}
@@ -1431,11 +1437,15 @@ func (app *Application) reloadConfig(configFile string) error {
 	// Re-register MQTT command handlers for all devices (including newly added ones)
 	app.handleMQTTStateChanges()
 
-	// Republish Home Assistant discovery topics
-	if err := app.publishDiscovery(); err != nil {
-		app.logger.Error("Failed to republish discovery topics after config reload", "error", err)
+	// Republish Home Assistant discovery topics (only if MQTT is connected)
+	if app.mqttClient.IsConnected() {
+		if err := app.publishDiscovery(); err != nil {
+			app.logger.Error("Failed to republish discovery topics after config reload", "error", err)
+		} else {
+			app.logger.Info("Republished Home Assistant discovery topics after config reload")
+		}
 	} else {
-		app.logger.Info("Republished Home Assistant discovery topics after config reload")
+		app.logger.Warn("Skipping discovery publish - MQTT not connected (will publish when connected)")
 	}
 
 	// Fire WebSocket event

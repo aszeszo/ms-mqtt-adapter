@@ -108,6 +108,35 @@ func (c *Client) ClearTopics(scope, deviceID, entityID string, gateways map[stri
 		c.logger.Debug("Cleared topic", "topic", topic)
 	}
 
+	// Clear internal state cache for deleted entities
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+
+	switch scope {
+	case "all":
+		// Clear all states
+		c.states = make(map[string]string)
+		c.logger.Debug("Cleared all internal state cache")
+
+	case "device":
+		// Clear states for all entities in this device
+		for _, device := range c.devices {
+			if device.ID == deviceID {
+				for _, entity := range device.Entities {
+					compositeKey := fmt.Sprintf("%s_%s_entity", device.ID, entity.ID)
+					delete(c.states, compositeKey)
+					c.logger.Debug("Cleared state cache for entity", "device", deviceID, "entity", entity.ID, "key", compositeKey)
+				}
+			}
+		}
+
+	case "entity":
+		// Clear state for specific entity
+		compositeKey := fmt.Sprintf("%s_%s_entity", deviceID, entityID)
+		delete(c.states, compositeKey)
+		c.logger.Debug("Cleared state cache for entity", "device", deviceID, "entity", entityID, "key", compositeKey)
+	}
+
 	return nil
 }
 

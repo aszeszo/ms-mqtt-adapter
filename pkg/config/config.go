@@ -898,7 +898,7 @@ func SetDefaults(config *Config) {
 		}
 
 		if gatewayConfig.Gateway.AvailabilityWindow == 0 {
-			gatewayConfig.Gateway.AvailabilityWindow = 30 * time.Second
+			gatewayConfig.Gateway.AvailabilityWindow = 120 * time.Second // 2 minutes - prevents flapping for slow/periodic devices
 			// Log the default value being set
 			fmt.Printf("Setting default availability window for gateway %s to %v\n", gatewayName, gatewayConfig.Gateway.AvailabilityWindow)
 		}

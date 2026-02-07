@@ -88,9 +88,18 @@ func handleWebSocket(provider StatusProvider, bus *EventBus, logger *slog.Logger
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
 
+		// Mutex to protect concurrent writes to WebSocket
+		var writeMu sync.Mutex
+		writeJSON := func(v interface{}) error {
+			writeMu.Lock()
+			defer writeMu.Unlock()
+			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			return conn.WriteJSON(v)
+		}
+
 		// Send initial state
 		initial := buildInitialState(provider)
-		if err := conn.WriteJSON(Event{Type: EventInitialState, Data: initial}); err != nil {
+		if err := writeJSON(Event{Type: EventInitialState, Data: initial}); err != nil {
 			return
 		}
 
@@ -112,10 +121,10 @@ func handleWebSocket(provider StatusProvider, bus *EventBus, logger *slog.Logger
 				if json.Unmarshal(msg, &m) == nil {
 					switch m.Event {
 					case "ping":
-						conn.WriteJSON(Event{Type: EventPong})
+						writeJSON(Event{Type: EventPong})
 					case "refresh":
 						initial := buildInitialState(provider)
-						conn.WriteJSON(Event{Type: EventInitialState, Data: initial})
+						writeJSON(Event{Type: EventInitialState, Data: initial})
 					}
 				}
 			}
@@ -130,8 +139,7 @@ func handleWebSocket(provider StatusProvider, bus *EventBus, logger *slog.Logger
 				if !ok {
 					return
 				}
-				conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-				if err := conn.WriteJSON(evt); err != nil {
+				if err := writeJSON(evt); err != nil {
 					return
 				}
 			}

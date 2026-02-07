@@ -202,6 +202,9 @@ export class MsViewDashboard extends LitElement {
             </div>
             ${gw.seen_nodes?.length
               ? html`
+                  <div class="kv">
+                    <span class="kv-label">Seen IDs</span>
+                  </div>
                   <div class="node-chips">
                     ${gw.seen_nodes.map(
                       (n: number) => html`
