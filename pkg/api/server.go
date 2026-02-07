@@ -126,7 +126,7 @@ func NewServer(port int, provider StatusProvider, bus *EventBus, logStreamer Log
 		})
 	}
 
-	handler := ingressMiddleware(loggingMiddleware(logger, mux))
+	handler := ingressMiddleware(logger, loggingMiddleware(logger, mux))
 
 	s.httpServer = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
@@ -161,6 +161,12 @@ func (s *Server) serveIndex(w http.ResponseWriter, r *http.Request, staticFS fs.
 
 	// Inject the ingress base path from the header
 	basePath := r.Header.Get("X-Ingress-Path")
+
+	// Log ingress path for debugging
+	if basePath != "" {
+		s.logger.Debug("Serving index.html via ingress", "ingress_path", basePath, "request_path", r.URL.Path)
+	}
+
 	html := strings.ReplaceAll(string(data), "{{BASE_PATH}}", basePath)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

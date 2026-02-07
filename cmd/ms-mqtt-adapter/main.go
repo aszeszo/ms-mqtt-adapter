@@ -274,13 +274,19 @@ func (app *Application) getDefaultGateway() *gateway.Gateway {
 func (app *Application) Run(ctx context.Context) error {
 	// Store context for use in config reloading
 	app.ctx = ctx
-	
+
 	// Initialize retry counters
 	app.transportRetryCount = make(map[string]int)
 	app.mqttRetryCount = 0
 
 	// Initialize ACK tracking
 	app.pendingAcks = make(map[string]*PendingAck)
+
+	// Initialize HTTP server FIRST so the web UI / ingress is always available,
+	// even if transport or MQTT connections fail during startup.
+	if err := app.initializeHTTPServer(); err != nil {
+		return fmt.Errorf("failed to initialize HTTP server: %w", err)
+	}
 
 	if err := app.initializeTransports(); err != nil {
 		return fmt.Errorf("failed to initialize transports: %w", err)
@@ -300,11 +306,6 @@ func (app *Application) Run(ctx context.Context) error {
 
 	if err := app.initializeSyncManager(); err != nil {
 		return fmt.Errorf("failed to initialize sync manager: %w", err)
-	}
-
-	// Initialize HTTP server for web UI / ingress
-	if err := app.initializeHTTPServer(); err != nil {
-		return fmt.Errorf("failed to initialize HTTP server: %w", err)
 	}
 
 	// Start file watcher for config reloading
