@@ -1,0 +1,32 @@
+# MySensors MQTT Adapter Configuration
+# See example.yaml for comprehensive configuration options and examples
+
+# Log level: debug, info, warn, error
+log_level: "info"
+
+# MQTT broker configuration (required)
+mqtt:
+  broker: "localhost"          # MQTT broker address
+  port: 1883                   # MQTT broker port
+  # username: ""               # MQTT username (optional)
+  # password: ""               # MQTT password (optional)
+  # client_id: "ms-mqtt-adapter"  # MQTT client ID (optional)
+
+# MySensors gateway configurations (at least one required)
+mysensors:
+  # example_gateway:
+  #   transport: "ethernet"
+  #   ethernet:
+  #     host: "192.168.1.100"
+  #     port: 5003
+
+# Adapter configuration (all optional)
+adapter:
+  topic_prefix: "ms-mqtt-adapter"
+  homeassistant_discovery: true
+
+# ID aliases for friendly child_id references (optional)
+id_aliases: {}
+
+# Device definitions (optional)
+devices: []

@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "rspack build",
+    "dev": "rspack serve"
+  },
+  "dependencies": {
+    "lit": "^3.3.0"
+  },
+  "devDependencies": {
+    "@rspack/core": "^1.7.0",
+    "@rspack/cli": "^1.7.0",
+    "typescript": "^5.9.0"
+  }
+}

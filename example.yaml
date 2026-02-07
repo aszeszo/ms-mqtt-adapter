@@ -1,0 +1,658 @@
+# MySensors MQTT Adapter Configuration
+# This file shows all possible configuration options with their default values
+
+# Log level for the adapter
+# Options: debug, info, warn, error
+# Default: "info"
+log_level: "info"
+
+# MySensors gateway configurations (at least one required)
+# The first gateway in the list becomes the default gateway
+mysensors:
+  # Gateway name (user-defined identifier)
+  main_house:
+    # Transport type
+    # Options: ethernet, rs485
+    # Default: "ethernet"
+    transport: "ethernet"
+
+    # Ethernet transport configuration (required if transport: ethernet)
+    ethernet:
+      host: "172.30.15.1"  # MySensors gateway IP address (required)
+      port: 5003           # MySensors gateway port (default: 5003)
+
+    # RS485 transport configuration (required if transport: rs485)
+    # rs485:
+    #   device: "/dev/ttyUSB0"  # Serial device path (required for rs485)
+
+    # Gateway-specific settings
+    gateway:
+      # Node ID assignment configuration
+      node_id_assignment:
+        enabled: true          # Enable automatic node ID assignment (default: true)
+        node_id_range:
+          start: 1             # First assignable node ID (default: 1)
+          end: 254             # Last assignable node ID (default: 254)
+        random_id_assignment: false  # false=sequential, true=random from pool (default: false)
+
+      # How often to send heartbeat requests to gateway
+      # Set to "0s" to disable heartbeat requests entirely
+      # Default: "0s" (disabled)
+      heartbeat_request_period: "10s"
+
+      # How long to consider a node available after receiving I_TIME or I_DISCOVER_RESPONSE
+      # Default: "30s"
+      availability_window: "30s"
+
+    # TCP message replication service (for external MySensors tools)
+    tcp_service:
+      enabled: false  # Enable TCP service (default: false)
+      port: 5003      # TCP port for message replication (required when enabled)
+
+# MQTT broker configuration
+mqtt:
+  broker: "192.168.122.160"         # MQTT broker address (required)
+  port: 1883                        # MQTT broker port (default: 1883)
+  username: "nippy"                 # MQTT username (optional)
+  password: "nippy"                 # MQTT password (optional)
+  client_id: "ms-mqtt-adapter"      # MQTT client ID (default: "ms-mqtt-adapter")
+
+# ID aliases - map friendly names to numeric IDs for easier configuration
+# This allows using descriptive names instead of remembering numeric IDs
+# - Both node_id and child_id can use aliases or numeric values
+# - Alias names must be unique within the id_aliases map
+# - Numeric values must be 0-255 for MySensors compatibility
+id_aliases:
+  relay9_ch0: 0
+  relay9_ch1: 1
+  relay9_ch2: 2
+  relay9_ch3: 8
+  relay9_ch4: 7
+  relay9_ch5: 6
+  relay9_ch6: 5
+  relay9_ch7: 4
+  relay9_ch8: 3
+
+# Adapter behavior configuration (all optional)
+adapter:
+  # MQTT topic prefix for all adapter topics
+  # Default: "ms-mqtt-adapter"
+  topic_prefix: "ms-mqtt-adapter"
+
+  # Enable Home Assistant auto-discovery
+  # Default: true
+  homeassistant_discovery: true
+
+# Device definitions using unified entity system
+devices:
+  # Example device demonstrating all configuration options
+  - # DEVICE IDENTIFICATION FIELDS:
+    #
+    # name: Display name shown in Home Assistant UI
+    #       Human-readable label for the device
+    #       Example: "Smart Relay Controller"
+    #
+    # id: Device internal identifier
+    #     Used to generate default unique_id and object_id for entities
+    #     Must be unique across all devices
+    #     Used in MQTT topics: {topic_prefix}/device/{id}/...
+    #     Example: "relay_controller_1"
+    #
+    name: "Smart Relay Controller"
+    id: "relay_controller_1"
+    node_id: 9                            # MySensors node ID (numeric or alias)
+    gateway: "main_house"                 # Gateway to use (optional, defaults to first gateway)
+    manufacturer: "ACME Electronics"      # Device manufacturer (required)
+    model: "Smart Controller Pro"         # Device model (required)
+    sw_version: "2.0.1"                   # Software version (required)
+    hw_version: "1.2"                     # Hardware version (required)
+    configuration_url: "http://192.168.1.100/config"  # Device config URL (optional, default: "")
+    suggested_area: "Basement"            # Suggested Home Assistant area (optional, default: "")
+    connections:                          # Device connections for Home Assistant (optional, default: [])
+      - ["mac", "AA:BB:CC:DD:EE:FF"]
+      - ["ip", "192.168.1.100"]
+    via_device: "gateway_device_id"       # Parent device ID (optional, default: "")
+
+    entities:
+      # ENTITY IDENTIFICATION FIELDS:
+      #
+      # name: Display name shown in Home Assistant UI
+      #       Human-readable label for the entity
+      #       Example: "Main Power Relay"
+      #
+      # id: Entity internal identifier
+      #     Used to generate default unique_id and object_id
+      #     Must be unique within the device
+      #     Example: "main_power"
+      #
+      # unique_id: Custom identifier for MQTT topics (optional)
+      #            If not specified: defaults to "{device_id}_{entity_id}"
+      #            Used in MQTT topics: {topic_prefix}/entity/{unique_id}/state
+      #            Used in MQTT topics: {topic_prefix}/entity/{unique_id}/set
+      #            Used in Home Assistant discovery: homeassistant/{entity_type}/{unique_id}/config
+      #            Example: "relay_controller_main_power"
+      #
+      # object_id: Home Assistant entity object_id (optional)
+      #            If not specified: defaults to "{device_id}_{entity_id}"
+      #            If set to "": excludes object_id from discovery entirely
+      #            Custom value: creates entity with that object_id (e.g., switch.custom_name)
+      #            This controls the entity_id in Home Assistant (e.g., switch.basement_main_power)
+      #            Example: "basement_main_power"
+      #
+
+      # Standard switch entity with all options
+      - name: "Main Power Relay"
+        id: "main_power"
+        unique_id: "relay_controller_main_power"   # Custom unique ID for MQTT topics
+        object_id: "basement_main_power"           # Custom Home Assistant object_id
+        child_id: relay9_ch0                       # Using alias (resolves to 0)
+        entity_type: "switch"                      # Entity type for Home Assistant
+
+        # Entity behavior
+        initial_value: "0"                 # Initial state (default: "0" for switch)
+        read_only: false                   # Entity can receive commands (default: false for switch)
+        write_only: false                  # Entity reports state (default: false)
+        optimistic: false                  # Wait for device confirmation (default: false)
+
+        # ACK configuration
+        request_ack: true                  # Require ACK with timeout/retry (default: true)
+        ack_timeout: "250ms"               # Time to wait for ACK response (default: 250ms)
+        ack_retries: 3                     # Number of retries on timeout (default: 3)
+
+        # Sync configuration
+        sync_period: "30s"                 # Sync state every 30 seconds (default: 0, disabled)
+        sync_splay: "5s"                   # Random delay (0-5s) before each sync (default: 0)
+
+        # Home Assistant integration
+        icon: "mdi:power"                  # Material Design icon (default: "")
+        device_class: "switch"             # Home Assistant device class (default: "")
+        entity_category: "config"          # Entity category: config, diagnostic, system (default: "")
+        enabled_by_default: true           # Enable by default in HA (default: true)
+
+        # MQTT configuration
+        availability_topic: "availability/relay1"     # Custom availability topic (default: auto-generated)
+        payload_available: "online"                   # Payload for available state (default: "online")
+        payload_not_available: "offline"              # Payload for unavailable state (default: "offline")
+        payload_on: "ON"                              # Payload for on state (default: "1")
+        payload_off: "OFF"                            # Payload for off state (default: "0")
+        state_on: "1"                                 # State value for on (default: "1")
+        state_off: "0"                                # State value for off (default: "0")
+        qos: 0                                        # MQTT QoS level (optional)
+        retain: false                                 # MQTT retain flag (optional)
+
+        # MQTT template configuration (optional)
+        json_attributes_topic: "attributes/relay1"    # JSON attributes topic (default: "")
+        json_attributes_template: "{{ value_json }}"  # JSON attributes template (default: "")
+        state_value_template: "{{ value }}"           # State value template (default: "")
+        command_template: "{{ value }}"               # Command template (default: "")
+
+      # Fast response light (optimistic mode, no ACK for speed)
+      - name: "Instant Response Light"
+        id: "instant_light"
+        # unique_id not specified - defaults to "relay_controller_1_instant_light"
+        # object_id not specified - defaults to "relay_controller_1_instant_light"
+        child_id: relay9_ch1               # Using alias (resolves to 1)
+        entity_type: "light"
+        initial_value: "0"                 # Default: "0" for light
+        sync_period: "10s"                 # High-frequency sync for critical entity
+        icon: "mdi:lightbulb"
+        optimistic: true                   # Override: immediate response for fast UI
+        request_ack: false                 # Override: fire-and-forget for speed
+
+      # Security system (explicit non-optimistic, no sync)
+      - name: "Security System"
+        id: "security_system"
+        child_id: relay9_ch2               # Using alias (resolves to 2)
+        entity_type: "switch"
+        initial_value: "0"
+        # No sync_period = sync disabled
+        icon: "mdi:security"
+        optimistic: false                  # Explicit: must wait for device confirmation
+        request_ack: true                  # Explicit: require ACK with timeout/retry
+        ack_timeout: "250ms"               # Default value
+        ack_retries: 3                     # Default value
+
+      # Custom unique_id example
+      - name: "Special Control"
+        id: "special_control"
+        unique_id: "basement_special_ctrl" # Custom unique ID for MQTT topics
+        object_id: ""                      # Empty string excludes object_id from HA discovery
+        child_id: relay9_ch3               # Using alias (resolves to 8)
+        entity_type: "switch"
+        sync_period: "60s"                 # Low-frequency sync
+        icon: "mdi:toggle-switch"
+
+  # Example input device (sensors/buttons)
+  - name: "Multi-Sensor Panel"
+    id: "sensor_panel_1"
+    node_id: 2
+    manufacturer: "ACME Electronics"
+    model: "Sensor Panel Pro"
+    sw_version: "1.5"
+    hw_version: "1.0"
+
+    entities:
+      # Binary sensor entities (read-only)
+      - name: "Button 1"
+        id: "button_1"
+        child_id: 0
+        entity_type: "binary_sensor"
+        read_only: true                    # Explicitly read-only (default: true for binary_sensor)
+        icon: "mdi:gesture-tap-button"
+        device_class: "button"
+        entity_category: "diagnostic"
+
+        # MQTT configuration for binary sensor
+        payload_on: "PRESSED"              # Default: "1"
+        payload_off: "RELEASED"            # Default: "0"
+        off_delay: 5                       # Auto-off delay in seconds (optional)
+
+      - name: "Motion Sensor"
+        id: "motion_1"
+        child_id: 1
+        entity_type: "binary_sensor"
+        read_only: true
+        icon: "mdi:motion-sensor"
+        device_class: "motion"
+        off_delay: 10                      # Auto-off after 10 seconds
+
+      # Numeric sensor entities
+      - name: "Temperature"
+        id: "temperature"
+        child_id: 2
+        entity_type: "temperature"         # Maps to MySensors V_TEMP
+        read_only: true                    # Entity is read-only (default: false, overridden here)
+        unit_of_measurement: "°C"          # Default unit for temperature
+        state_class: "measurement"         # Home Assistant state class (default for temperature)
+        icon: "mdi:thermometer"
+        device_class: "temperature"
+        expire_after: 300                  # Expire sensor after 5 minutes without updates (optional)
+        value_template: "{{ value | round(1) }}"  # Template to format temperature value (optional)
+
+      - name: "Humidity"
+        id: "humidity"
+        child_id: 3
+        entity_type: "humidity"            # Maps to MySensors V_HUM
+        read_only: true
+        unit_of_measurement: "%"           # Default unit for humidity
+        state_class: "measurement"         # Default for humidity
+        icon: "mdi:water-percent"
+        device_class: "humidity"
+
+      - name: "Battery Level"
+        id: "battery"
+        child_id: 4
+        entity_type: "battery"             # Maps to MySensors V_PERCENTAGE
+        read_only: true
+        unit_of_measurement: "%"           # Default unit for battery
+        state_class: "measurement"         # Default for battery
+        entity_category: "diagnostic"
+        icon: "mdi:battery"
+        device_class: "battery"
+
+  # Device with text, number, and select entities
+  - name: "Smart Display Controller"
+    id: "display_controller"
+    node_id: 6
+    manufacturer: "ACME Electronics"
+    model: "Display Pro"
+    sw_version: "1.0"
+    hw_version: "1.0"
+
+    entities:
+      # Text entity for sending messages
+      - name: "Display Message"
+        id: "display_message"
+        child_id: 0
+        entity_type: "text"                # Maps to MySensors V_TEXT
+        initial_value: "Hello World"       # Default: "" for text
+        sync_period: "45s"                 # Periodic sync of display text
+        icon: "mdi:message-text"
+        entity_category: "config"
+
+      # Number entity for brightness control
+      - name: "Brightness Level"
+        id: "brightness_level"
+        child_id: 1
+        entity_type: "number"              # Maps to MySensors V_PERCENTAGE
+        initial_value: "50"                # Default: "0" for number
+        sync_period: "20s"                 # Frequent sync for display control
+        min_value: 0                       # Minimum value (optional)
+        max_value: 100                     # Maximum value (optional)
+        step: 5                            # Step size (optional)
+        unit_of_measurement: "%"           # Default: "" for number
+        icon: "mdi:brightness-6"
+
+      # Select entity for mode selection
+      - name: "Display Mode"
+        id: "display_mode"
+        child_id: 2
+        entity_type: "select"              # Maps to MySensors V_TEXT
+        initial_value: "normal"            # Default: "" for select
+        sync_period: "60s"
+        options: ["normal", "bright", "dim", "off"]  # Available options (required for select)
+        icon: "mdi:monitor"
+
+      # Write-only entity example (command-only, never reports state)
+      - name: "Beep Command"
+        id: "beep_cmd"
+        child_id: 3
+        entity_type: "text"
+        write_only: true                   # Entity only receives commands, never reports state (default: false)
+        initial_value: ""
+        icon: "mdi:bell-ring"
+        entity_category: "config"
+
+  # Cover entity example (garage door)
+  - name: "Garage Door Controller"
+    id: "garage_controller"
+    node_id: 50
+    gateway: "main_house"
+    manufacturer: "ACME Electronics"
+    model: "Garage Pro"
+    sw_version: "1.0"
+    hw_version: "1.0"
+
+    entities:
+      - name: "Garage Door"
+        id: "garage_door"
+        child_id: 0
+        entity_type: "cover"               # Cover entity type
+        initial_value: "CLOSE"             # Default: "0" for cover
+        sync_period: "30s"                 # Periodic sync for door status
+        icon: "mdi:garage"
+        device_class: "garage"
+        payload_open: "OPEN"               # Payload for open command (default: "OPEN")
+        payload_close: "CLOSE"             # Payload for close command (default: "CLOSE")
+        payload_stop: "STOP"               # Payload for stop command (default: "STOP")
+        state_open: "open"                 # State value for open (default: "open")
+        state_closed: "closed"             # State value for closed (default: "closed")
+
+  # Device without node_id - all entities specify their own node_id
+  - name: "Distributed Sensor Network"
+    id: "distributed_sensors"
+    # No node_id on device - entities use different MySensors nodes
+    gateway: "main_house"
+    manufacturer: "ACME Electronics"
+    model: "Distributed Sensors"
+    sw_version: "1.0"
+    hw_version: "1.0"
+
+    entities:
+      # Each entity connects to a different MySensors node
+      - name: "Living Room Temperature"
+        id: "living_temp"
+        node_id: 21                        # MySensors node 21 (entity-level override)
+        child_id: 0
+        entity_type: "temperature"
+        read_only: true
+        icon: "mdi:thermometer"
+
+      - name: "Kitchen Temperature"
+        id: "kitchen_temp"
+        node_id: 22                        # MySensors node 22
+        child_id: 0
+        entity_type: "temperature"
+        read_only: true
+        icon: "mdi:thermometer"
+
+      - name: "Basement Switch"
+        id: "basement_switch"
+        node_id: 23                        # MySensors node 23
+        child_id: 0
+        entity_type: "switch"
+        icon: "mdi:light-switch"
+
+  # Advanced sensor hub with various sensor types
+  - name: "Environmental Monitor"
+    id: "env_monitor"
+    node_id: 5
+    manufacturer: "ACME Electronics"
+    model: "Env Monitor Pro"
+    sw_version: "1.0"
+    hw_version: "1.0"
+
+    entities:
+      # Power monitoring sensors
+      - name: "Power Consumption"
+        id: "power_watt"
+        child_id: 0
+        entity_type: "watt"                # Maps to V_WATT
+        read_only: true
+        icon: "mdi:flash"
+        device_class: "power"
+        unit_of_measurement: "W"           # Default for watt
+        state_class: "measurement"         # Default for watt
+
+      - name: "Energy Total"
+        id: "energy_kwh"
+        child_id: 1
+        entity_type: "kwh"                 # Maps to V_KWH
+        read_only: true
+        icon: "mdi:lightning-bolt"
+        device_class: "energy"
+        unit_of_measurement: "kWh"         # Default for kwh
+        state_class: "total_increasing"    # Default for kwh
+
+      # Environmental sensors
+      - name: "Light Level"
+        id: "light_level"
+        child_id: 2
+        entity_type: "light_level"         # Maps to V_LIGHT_LEVEL
+        read_only: true
+        icon: "mdi:brightness-6"
+        device_class: "illuminance"
+        unit_of_measurement: "lx"          # Default for light_level
+        state_class: "measurement"         # Default for light_level
+
+      - name: "Atmospheric Pressure"
+        id: "pressure"
+        child_id: 3
+        entity_type: "pressure"            # Maps to V_PRESSURE
+        read_only: true
+        unit_of_measurement: "hPa"         # Default for pressure
+        state_class: "measurement"         # Default for pressure
+        icon: "mdi:gauge"
+        device_class: "atmospheric_pressure"
+
+      # Custom sensor with variable type override
+      - name: "Custom Measurement"
+        id: "custom_sensor"
+        child_id: 4
+        entity_type: "sensor"              # Generic sensor
+        variable_type: "V_CUSTOM"          # Override MySensors variable type (optional)
+        read_only: true                    # Default: true for sensor
+        unit_of_measurement: "ppm"
+        state_class: "measurement"
+        icon: "mdi:chemical-weapon"
+        value_template: "{{ value | round(2) }}"
+
+      # Additional sensor types demonstration
+      - name: "Voltage"
+        id: "voltage"
+        child_id: 5
+        entity_type: "voltage"             # Maps to V_VOLTAGE
+        read_only: true
+        unit_of_measurement: "V"           # Default for voltage
+        state_class: "measurement"         # Default for voltage
+        device_class: "voltage"
+        icon: "mdi:flash-triangle"
+
+      - name: "Current"
+        id: "current"
+        child_id: 6
+        entity_type: "current"             # Maps to V_CURRENT
+        read_only: true
+        unit_of_measurement: "A"           # Default for current
+        state_class: "measurement"         # Default for current
+        device_class: "current"
+        icon: "mdi:current-ac"
+
+      - name: "Distance"
+        id: "distance"
+        child_id: 7
+        entity_type: "distance"            # Maps to V_DISTANCE
+        read_only: true
+        unit_of_measurement: "m"           # Default for distance
+        state_class: "measurement"         # Default for distance
+        device_class: "distance"
+        icon: "mdi:ruler"
+
+  # Dimmer and RGB light examples
+  - name: "Lighting Controller"
+    id: "lighting_controller"
+    node_id: 10
+    manufacturer: "ACME Electronics"
+    model: "Light Controller Pro"
+    sw_version: "1.0"
+    hw_version: "1.0"
+
+    entities:
+      - name: "Dimmable Light"
+        id: "dimmer_light"
+        child_id: 0
+        entity_type: "dimmer"              # Maps to V_PERCENTAGE
+        initial_value: "0"                 # Default: "0" for dimmer
+        sync_period: "30s"
+        min_value: 0                       # Minimum brightness
+        max_value: 100                     # Maximum brightness
+        step: 1                            # Step size
+        icon: "mdi:lightbulb-on"
+
+      - name: "RGB Light Strip"
+        id: "rgb_strip"
+        child_id: 1
+        entity_type: "rgb_light"           # Maps to V_RGB
+        initial_value: "000000"            # Default: RGB hex value
+        sync_period: "30s"
+        icon: "mdi:led-strip"
+
+      - name: "RGBW Light"
+        id: "rgbw_light"
+        child_id: 2
+        entity_type: "rgbw_light"          # Maps to V_RGBW
+        initial_value: "00000000"          # Default: RGBW hex value
+        sync_period: "30s"
+        icon: "mdi:led-strip-variant"
+
+  # Climate control example
+  - name: "HVAC Controller"
+    id: "hvac_controller"
+    node_id: 15
+    manufacturer: "ACME Electronics"
+    model: "Climate Pro"
+    sw_version: "1.0"
+    hw_version: "1.0"
+
+    entities:
+      - name: "Thermostat"
+        id: "thermostat"
+        child_id: 0
+        entity_type: "climate"             # Maps to V_HVAC_SETPOINT_HEAT
+        initial_value: "20"                # Default temperature setpoint
+        sync_period: "60s"
+        min_value: 5                       # Minimum temperature
+        max_value: 35                      # Maximum temperature
+        step: 0.5                          # Temperature step
+        unit_of_measurement: "°C"
+        icon: "mdi:thermostat"
+
+# Topic Structure:
+# - Entity commands: {topic_prefix}/entity/{unique_id}/set
+# - Entity states: {topic_prefix}/entity/{unique_id}/state
+# - Home Assistant discovery: homeassistant/{entity_type}/{unique_id}/config
+# - Gateway seen nodes: {topic_prefix}/gateway/{gateway_name}/seen_nodes
+# - Presentation messages: {topic_prefix}/gateway/{gateway_name}/node/{node_id}/presentation
+
+# Available Entity Types:
+#
+# Actuator Types (can receive commands):
+# - switch: Binary on/off control (V_STATUS)
+# - light: Light control (V_STATUS)
+# - dimmer: Dimmer with percentage (V_PERCENTAGE)
+# - cover: Cover/blind control (V_UP/V_DOWN/V_STOP)
+# - text: Text message control (V_TEXT)
+# - number: Numeric value control (V_PERCENTAGE)
+# - select: Selection from predefined options (V_TEXT)
+# - climate: Climate control (V_HVAC_SETPOINT_HEAT)
+# - rgb_light: RGB light control (V_RGB)
+# - rgbw_light: RGBW light control (V_RGBW)
+#
+# Sensor Types (typically read-only):
+# - sensor: Generic sensor (V_CUSTOM)
+# - binary_sensor: Binary sensor (V_STATUS)
+# - temperature: Temperature sensor (V_TEMP) - default unit: °C
+# - humidity: Humidity sensor (V_HUM) - default unit: %
+# - battery: Battery level (V_PERCENTAGE) - default unit: %
+# - voltage: Voltage sensor (V_VOLTAGE) - default unit: V
+# - current: Current sensor (V_CURRENT) - default unit: A
+# - pressure: Pressure sensor (V_PRESSURE) - default unit: hPa
+# - level: Level sensor (V_LEVEL) - default unit: %
+# - percentage: Percentage sensor (V_PERCENTAGE) - default unit: %
+# - weight: Weight sensor (V_WEIGHT) - default unit: kg
+# - distance: Distance sensor (V_DISTANCE) - default unit: m
+# - light_level: Light sensor (V_LIGHT_LEVEL) - default unit: lx
+# - watt: Power sensor (V_WATT) - default unit: W
+# - kwh: Energy sensor (V_KWH) - default unit: kWh
+# - flow: Flow sensor (V_FLOW) - default unit: m³/h
+# - volume: Volume sensor (V_VOLUME) - default unit: m³
+# - ph: pH sensor (V_PH)
+# - orp: ORP sensor (V_ORP)
+# - ec: EC sensor (V_EC)
+# - var: VAR sensor (V_VAR)
+# - va: VA sensor (V_VA)
+# - power_factor: Power factor (V_POWER_FACTOR)
+# - custom: Custom sensor (V_CUSTOM)
+# - position: Position sensor (V_POSITION)
+# - uv: UV sensor (V_UV)
+# - rain: Rain sensor (V_RAIN)
+# - rainrate: Rain rate sensor (V_RAINRATE)
+# - wind: Wind sensor (V_WIND)
+# - gust: Gust sensor (V_GUST)
+# - direction: Direction sensor (V_DIRECTION)
+# - impedance: Impedance sensor (V_IMPEDANCE)
+
+# Duration Format:
+# All duration values use Go format: "5s", "30s", "1m", "2h", "0s" (disables feature)
+
+# Configuration Hierarchy (Priority Order):
+# 1. Entity-level (highest priority)
+# 2. Device-level
+# 3. Global/Adapter-level
+# 4. Built-in defaults (lowest priority)
+
+# Default Values Summary:
+# - log_level: "info"
+# - mqtt.port: 1883
+# - mqtt.client_id: "ms-mqtt-adapter"
+# - mysensors.transport: "ethernet"
+# - mysensors.ethernet.port: 5003
+# - gateway.node_id_assignment.enabled: true
+# - gateway.node_id_assignment.node_id_range.start: 1
+# - gateway.node_id_assignment.node_id_range.end: 254
+# - gateway.node_id_assignment.random_id_assignment: false
+# - gateway.heartbeat_request_period: "0s" (disabled)
+# - gateway.availability_window: "30s"
+# - tcp_service.enabled: false
+# - adapter.topic_prefix: "ms-mqtt-adapter"
+# - adapter.homeassistant_discovery: true
+# - entity.read_only: false (true for sensor, binary_sensor)
+# - entity.write_only: false
+# - entity.optimistic: false
+# - entity.request_ack: true
+# - entity.ack_timeout: "250ms"
+# - entity.ack_retries: 3
+# - entity.sync_period: 0 (disabled)
+# - entity.sync_splay: 0
+# - entity.enabled_by_default: true
+# - entity.payload_available: "online"
+# - entity.payload_not_available: "offline"
+# - entity.payload_on: "1"
+# - entity.payload_off: "0"
+# - entity.state_on: "1"
+# - entity.state_off: "0"
+# - entity.payload_open: "OPEN"
+# - entity.payload_close: "CLOSE"
+# - entity.payload_stop: "STOP"
+# - entity.state_open: "open"
+# - entity.state_closed: "closed"
