@@ -1,5 +1,5 @@
 name: MySensors MQTT Adapter
-version: "2.2.0"
+version: "2.2.1"
 slug: ms_mqtt_adapter
 description: Bridge between MySensors networks and MQTT with Home Assistant auto-discovery
 url: https://github.com/aszeszo/ms-mqtt-adapter
@@ -13,8 +13,6 @@ startup: services
 boot: auto
 init: false
 ingress: true
-ingress_port: 8099
-ingress_entry: /
 panel_icon: "mdi:chip"
 panel_title: "MySensors"
 image: ghcr.io/aszeszo/ms-mqtt-adapter

@@ -162,10 +162,12 @@ func (s *Server) serveIndex(w http.ResponseWriter, r *http.Request, staticFS fs.
 	// Inject the ingress base path from the header
 	basePath := r.Header.Get("X-Ingress-Path")
 
-	// Log ingress path for debugging
-	if basePath != "" {
-		s.logger.Debug("Serving index.html via ingress", "ingress_path", basePath, "request_path", r.URL.Path)
-	}
+	// Log ingress path for debugging - log both when present and when missing
+	s.logger.Debug("Serving index.html",
+		"ingress_path", basePath,
+		"request_path", r.URL.Path,
+		"has_ingress_header", basePath != "",
+		"all_headers", r.Header)
 
 	html := strings.ReplaceAll(string(data), "{{BASE_PATH}}", basePath)
 
