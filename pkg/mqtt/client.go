@@ -654,6 +654,9 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 	if entity.EntityCategory != "" {
 		discoveryConfig["entity_category"] = entity.EntityCategory
 	}
+	if entity.SuggestedArea != "" {
+		discoveryConfig["suggested_area"] = entity.SuggestedArea
+	}
 	if entity.EnabledByDefault != nil {
 		discoveryConfig["enabled_by_default"] = *entity.EnabledByDefault
 	}

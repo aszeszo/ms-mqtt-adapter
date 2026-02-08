@@ -120,6 +120,7 @@ type Entity struct {
 	Icon                   string `yaml:"icon" json:"icon"`
 	DeviceClass            string `yaml:"device_class" json:"device_class"`
 	EntityCategory         string `yaml:"entity_category,omitempty" json:"entity_category,omitempty"`
+	SuggestedArea          string `yaml:"suggested_area,omitempty" json:"suggested_area,omitempty"`
 	EnabledByDefault       *bool  `yaml:"enabled_by_default,omitempty" json:"enabled_by_default,omitempty"`
 	UnitOfMeasurement      string `yaml:"unit_of_measurement,omitempty" json:"unit_of_measurement,omitempty"`
 
