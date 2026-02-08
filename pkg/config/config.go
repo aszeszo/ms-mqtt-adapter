@@ -132,7 +132,6 @@ type DiscoveryConfig struct {
 	Icon                       string `yaml:"icon,omitempty" json:"icon,omitempty"`
 	DeviceClass                string `yaml:"device_class,omitempty" json:"device_class,omitempty"`
 	EntityCategory             string `yaml:"entity_category,omitempty" json:"entity_category,omitempty"`
-	SuggestedArea              string `yaml:"suggested_area,omitempty" json:"suggested_area,omitempty"`
 	EntityPicture              string `yaml:"entity_picture,omitempty" json:"entity_picture,omitempty"`
 	EnabledByDefault           *bool  `yaml:"enabled_by_default,omitempty" json:"enabled_by_default,omitempty"`
 

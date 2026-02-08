@@ -36,6 +36,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o ms-mqtt-adapter ./cmd/ms-mqtt-adapter
 
 FROM $BUILD_FROM AS local
 
+ARG VERSION=dev
+
 RUN apk --no-cache add ca-certificates
 
 WORKDIR /
@@ -53,6 +55,8 @@ LABEL \
 CMD ["/run.sh"]
 
 FROM $BUILD_FROM AS ci
+
+ARG VERSION=dev
 
 RUN apk --no-cache add ca-certificates
 

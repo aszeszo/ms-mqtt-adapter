@@ -695,9 +695,6 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 	if d.EntityCategory != "" {
 		discoveryConfig["entity_category"] = d.EntityCategory
 	}
-	if d.SuggestedArea != "" {
-		discoveryConfig["suggested_area"] = d.SuggestedArea
-	}
 	if d.EntityPicture != "" {
 		discoveryConfig["entity_picture"] = d.EntityPicture
 	}

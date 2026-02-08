@@ -150,15 +150,16 @@ devices:                              # optional; if absent/empty, no entities a
     id: "relay_board"
     node_id: relay_node               # int or alias; can be omitted if each entity sets node_id
     gateway: "main_house"             # optional; otherwise "default gateway" heuristic
-    manufacturer: "Example"
-    model: "Relay"
-    sw_version: "1.0"
-    hw_version: "1.0"
-    configuration_url: "http://..."
-    suggested_area: "Basement"
-    connections:
-      - ["mac", "AA:BB:CC:DD:EE:FF"]
-    via_device: "some_device_id"
+    discovery:                        # Home Assistant MQTT discovery device info
+      manufacturer: "Example"
+      model: "Relay"
+      sw_version: "1.0"
+      hw_version: "1.0"
+      configuration_url: "http://..."
+      suggested_area: "Basement"      # Suggested HA area (device-level only)
+      connections:
+        - ["mac", "AA:BB:CC:DD:EE:FF"]
+      via_device: "some_device_id"
     entities:
       - name: "Relay 1"
         id: "relay_1"
@@ -262,11 +263,13 @@ Actuator configuration fields (used mostly for HA discovery):
 - number: `min_value`, `max_value`, `step`
 - select: `options`
 
-Home Assistant / MQTT discovery metadata fields:
+Home Assistant / MQTT discovery metadata fields (entity-level):
 
 - `icon`, `device_class`, `entity_category`, `enabled_by_default`, `unit_of_measurement`, `state_class`
 - payload fields: `payload_on`, `payload_off`, etc.
 - template fields: `value_template`, `json_attributes_template`, etc.
+
+Note: `suggested_area` is a device-level field only (set in the device's `discovery:` section).
 
 ACK fields:
 
