@@ -72,6 +72,7 @@ type GatewayConfig struct {
 	NodeIDAssignment       NodeIDAssignmentConfig `yaml:"node_id_assignment" json:"node_id_assignment"`
 	HeartbeatRequestPeriod time.Duration          `yaml:"heartbeat_request_period" json:"heartbeat_request_period"`
 	AvailabilityWindow     time.Duration          `yaml:"availability_window" json:"availability_window"`
+	RespondToTimeRequests  *bool                  `yaml:"respond_to_time_requests,omitempty" json:"respond_to_time_requests,omitempty"`
 }
 
 type AdapterConfig struct {
@@ -970,6 +971,12 @@ func SetDefaults(config *Config) {
 		if gatewayConfig.Gateway.NodeIDAssignment.RandomIDAssignment == nil {
 			randomAssignment := false
 			gatewayConfig.Gateway.NodeIDAssignment.RandomIDAssignment = &randomAssignment
+		}
+
+		// Default to responding to time requests (true) if not specified
+		if gatewayConfig.Gateway.RespondToTimeRequests == nil {
+			respondToTime := true
+			gatewayConfig.Gateway.RespondToTimeRequests = &respondToTime
 		}
 
 		// TCP service is disabled by default and requires explicit port configuration

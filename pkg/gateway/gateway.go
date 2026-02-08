@@ -132,6 +132,12 @@ func (g *Gateway) handleIDRequest(message *mysensors.Message) error {
 }
 
 func (g *Gateway) handleTimeRequest(message *mysensors.Message) error {
+	// Check if time responses are disabled
+	if g.gatewayConfig.RespondToTimeRequests != nil && !*g.gatewayConfig.RespondToTimeRequests {
+		g.logger.Debug("Time request ignored (responses disabled)", "node", message.NodeID)
+		return nil
+	}
+
 	timestamp := time.Now().Unix()
 	response := mysensors.NewInternalMessage(message.NodeID, mysensors.I_TIME, fmt.Sprintf("%d", timestamp))
 

@@ -39,7 +39,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.3")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.4")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -682,6 +682,17 @@ func (app *Application) startTransportMessageHandler(gatewayName string, t trans
 
 			// Handle device-specific message processing (state updates, etc.)
 			app.handleDeviceMessage(message)
+
+			// Handle presentation messages for sensor type tracking
+			if message.IsPresentation() {
+				sensorType := message.GetSensorType()
+				description := message.Payload
+				if err := app.mqttClient.PublishPresentationMessage(app.config.AdapterTopics.TopicPrefix, gName, message.NodeID, message.ChildID, fmt.Sprintf("S_%d", int(sensorType)), description); err != nil {
+					app.logger.Error("Failed to publish presentation message", "gateway", gName, "error", err, "node_id", message.NodeID, "child_id", message.ChildID)
+				} else {
+					app.logger.Debug("Published presentation message", "gateway", gName, "node_id", message.NodeID, "child_id", message.ChildID, "sensor_type", sensorType, "description", description)
+				}
+			}
 
 			// Publish gateway-specific status only (no global tracking)
 			if gateway, exists := app.gateways[gName]; exists {

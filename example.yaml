@@ -44,6 +44,11 @@ mysensors:
       # Default: "30s"
       availability_window: "30s"
 
+      # Respond to I_TIME requests from nodes with current timestamp
+      # Set to false to ignore time requests (nodes won't receive timestamps)
+      # Default: true
+      respond_to_time_requests: true
+
     # TCP message replication service (for external MySensors tools)
     tcp_service:
       enabled: false  # Enable TCP service (default: false)
@@ -711,6 +716,7 @@ devices:
 # - gateway.node_id_assignment.random_id_assignment: false
 # - gateway.heartbeat_request_period: "0s" (disabled)
 # - gateway.availability_window: "30s"
+# - gateway.respond_to_time_requests: true
 # - tcp_service.enabled: false
 # - adapter.topic_prefix: "ms-mqtt-adapter"
 # - adapter.homeassistant_discovery: true
