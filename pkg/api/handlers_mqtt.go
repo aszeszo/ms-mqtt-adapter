@@ -13,7 +13,7 @@ func (s *Server) handleGetMQTTTopics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	topics, err := mqttClient.BrowseAllTopics(3 * time.Second)
+	topics, err := mqttClient.BrowseAllTopics(5 * time.Second)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

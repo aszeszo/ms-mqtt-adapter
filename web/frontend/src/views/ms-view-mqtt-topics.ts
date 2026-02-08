@@ -197,7 +197,7 @@ export class MsViewMqttTopics extends LitElement {
 
   render() {
     if (this._loading) {
-      return html`<div class="loading">Browsing MQTT broker topics (3s)...</div>`;
+      return html`<div class="loading">Browsing MQTT broker topics (5s)...</div>`;
     }
 
     const filtered = this._filtered;
