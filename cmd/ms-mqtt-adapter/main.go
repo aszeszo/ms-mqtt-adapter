@@ -39,7 +39,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.2")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.3")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -126,10 +126,15 @@ func (app *Application) GetTransportStatus() map[string]api.TransportStatus {
 		if gwCfg, ok := app.config.MySensors[name]; ok {
 			transportType = gwCfg.Transport
 		}
-		result[name] = api.TransportStatus{
+		status := api.TransportStatus{
 			Connected: t.IsConnected(),
 			Transport: transportType,
 		}
+		if arbiter, ok := t.(*transport.ArbiterTransport); ok {
+			stats := arbiter.GetStats()
+			status.HalfDuplex = &stats
+		}
+		result[name] = status
 	}
 	return result
 }
@@ -383,6 +388,20 @@ func (app *Application) initializeTransports() error {
 		default:
 			return fmt.Errorf("unsupported transport type for gateway %s: %s", gatewayName, gatewayConfig.Transport)
 		}
+
+		// Wrap with bus arbiter for half-duplex RS485 collision avoidance
+		if gatewayConfig.HalfDuplex.Enabled {
+			t = transport.NewArbiterTransport(t, transport.ArbiterConfig{
+				BusQuietTime:      gatewayConfig.HalfDuplex.BusQuietTime,
+				InterMessageDelay: gatewayConfig.HalfDuplex.InterMessageDelay,
+				MaxTXWait:         gatewayConfig.HalfDuplex.MaxTXWait,
+			}, app.logger)
+			app.logger.Info("Half-duplex bus arbitration enabled", "gateway", gatewayName,
+				"bus_quiet_time", gatewayConfig.HalfDuplex.BusQuietTime,
+				"inter_message_delay", gatewayConfig.HalfDuplex.InterMessageDelay,
+				"max_tx_wait", gatewayConfig.HalfDuplex.MaxTXWait)
+		}
+
 		app.transports[gatewayName] = t
 	}
 
@@ -1245,14 +1264,20 @@ func (app *Application) reloadConfig(configFile string) error {
 	// Reconfigure transports
 	for gatewayName, gatewayConfig := range newConfig.MySensors {
 		if trans, exists := app.transports[gatewayName]; exists {
+			// Unwrap arbiter to access the inner transport for reconfiguration
+			inner := trans
+			if arbiter, ok := trans.(*transport.ArbiterTransport); ok {
+				inner = arbiter.Inner()
+			}
+
 			// Reconnect if transport settings changed
 			switch gatewayConfig.Transport {
 			case "ethernet":
-				if ethTransport, ok := trans.(*transport.EthernetTransport); ok {
+				if ethTransport, ok := inner.(*transport.EthernetTransport); ok {
 					changed := ethTransport.Reconfigure(gatewayConfig.Ethernet.Host, gatewayConfig.Ethernet.Port)
 					if changed {
 						if trans.IsConnected() {
-							ethTransport.Disconnect()
+							trans.Disconnect()
 						}
 						gName := gatewayName
 						go func() {
@@ -1274,11 +1299,11 @@ func (app *Application) reloadConfig(configFile string) error {
 					}
 				}
 			case "rs485":
-				if rs485Transport, ok := trans.(*transport.RS485Transport); ok {
+				if rs485Transport, ok := inner.(*transport.RS485Transport); ok {
 					changed := rs485Transport.Reconfigure(gatewayConfig.RS485.Device, 9600)
 					if changed {
 						if trans.IsConnected() {
-							rs485Transport.Disconnect()
+							trans.Disconnect()
 						}
 						gName := gatewayName
 						go func() {
@@ -1320,6 +1345,17 @@ func (app *Application) reloadConfig(configFile string) error {
 				app.logger.Warn("Unsupported transport type for new gateway", "gateway", gatewayName, "transport", gatewayConfig.Transport)
 				continue
 			}
+
+			// Wrap with bus arbiter if half-duplex mode is enabled
+			if gatewayConfig.HalfDuplex.Enabled {
+				t = transport.NewArbiterTransport(t, transport.ArbiterConfig{
+					BusQuietTime:      gatewayConfig.HalfDuplex.BusQuietTime,
+					InterMessageDelay: gatewayConfig.HalfDuplex.InterMessageDelay,
+					MaxTXWait:         gatewayConfig.HalfDuplex.MaxTXWait,
+				}, app.logger)
+				app.logger.Info("Half-duplex bus arbitration enabled for new gateway", "gateway", gatewayName)
+			}
+
 			app.transports[gatewayName] = t
 
 			// Connect the new transport with retry logic in background

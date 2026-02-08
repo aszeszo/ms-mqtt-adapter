@@ -34,6 +34,14 @@ type MySensorsConfig struct {
 	RS485      RS485Config      `yaml:"rs485" json:"rs485"`
 	Gateway    GatewayConfig    `yaml:"gateway" json:"gateway"`
 	TCPService TCPServiceConfig `yaml:"tcp_service" json:"tcp_service"`
+	HalfDuplex HalfDuplexConfig `yaml:"half_duplex" json:"half_duplex"`
+}
+
+type HalfDuplexConfig struct {
+	Enabled           bool          `yaml:"enabled" json:"enabled"`
+	BusQuietTime      time.Duration `yaml:"bus_quiet_time" json:"bus_quiet_time"`
+	InterMessageDelay time.Duration `yaml:"inter_message_delay" json:"inter_message_delay"`
+	MaxTXWait         time.Duration `yaml:"max_tx_wait" json:"max_tx_wait"`
 }
 
 type MQTTConfig struct {
@@ -965,6 +973,19 @@ func SetDefaults(config *Config) {
 		}
 
 		// TCP service is disabled by default and requires explicit port configuration
+
+		// Set half-duplex defaults when enabled
+		if gatewayConfig.HalfDuplex.Enabled {
+			if gatewayConfig.HalfDuplex.BusQuietTime == 0 {
+				gatewayConfig.HalfDuplex.BusQuietTime = 100 * time.Millisecond
+			}
+			if gatewayConfig.HalfDuplex.InterMessageDelay == 0 {
+				gatewayConfig.HalfDuplex.InterMessageDelay = 50 * time.Millisecond
+			}
+			if gatewayConfig.HalfDuplex.MaxTXWait == 0 {
+				gatewayConfig.HalfDuplex.MaxTXWait = 2 * time.Second
+			}
+		}
 
 		config.MySensors[gatewayName] = gatewayConfig
 	}

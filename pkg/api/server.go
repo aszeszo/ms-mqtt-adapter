@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"ms-mqtt-adapter/pkg/config"
+	"ms-mqtt-adapter/pkg/transport"
 	"net/http"
 	"strings"
 	"time"
@@ -33,8 +34,9 @@ type MQTTClientProvider interface {
 }
 
 type TransportStatus struct {
-	Connected bool
-	Transport string
+	Connected  bool                    `json:"connected"`
+	Transport  string                  `json:"transport"`
+	HalfDuplex *transport.ArbiterStats `json:"half_duplex,omitempty"`
 }
 
 type MQTTStatus struct {
