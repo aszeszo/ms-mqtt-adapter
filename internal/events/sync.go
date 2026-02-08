@@ -180,11 +180,12 @@ func (esm *EntitySyncManager) Reconfigure(cfg *config.Config, mqttClient *mqtt.C
 
 func (es *EntitySync) syncLoop() {
 	period := es.entity.GetEffectiveSyncPeriod()
-	splay := es.entity.GetEffectiveSyncSplay()
+	splay := es.entity.GetEffectiveSyncSplay() // Auto-defaults to 10% of period (max 30s)
 	ticker := time.NewTicker(period)
 	defer ticker.Stop()
 
 	// Initial sync (with splay if configured)
+	// Splay spreads sync messages to prevent bus contention when many entities sync
 	es.performSyncWithSplay(splay)
 
 	for {

@@ -793,13 +793,30 @@ func (e *Entity) GetHAEntityType() string {
 }
 
 // GetEffectiveSyncSplay returns the sync splay for the entity
+// If not explicitly set, defaults to 10% of sync_period (up to max 30 seconds)
 // Returns 0 if splay is not set or if splay >= sync_period
 func (e *Entity) GetEffectiveSyncSplay() time.Duration {
-	if e.SyncSplay == nil || *e.SyncSplay <= 0 {
+	period := e.GetEffectiveSyncPeriod()
+
+	// If sync is disabled, no splay needed
+	if period <= 0 {
 		return 0
 	}
-	splay := *e.SyncSplay
-	period := e.GetEffectiveSyncPeriod()
+
+	var splay time.Duration
+	if e.SyncSplay == nil {
+		// Default: 10% of sync period, capped at 30 seconds
+		splay = period / 10
+		if splay > 30*time.Second {
+			splay = 30 * time.Second
+		}
+	} else if *e.SyncSplay <= 0 {
+		// Explicitly set to 0 - no splay
+		return 0
+	} else {
+		splay = *e.SyncSplay
+	}
+
 	// Ignore splay if it's >= sync_period (would cause issues)
 	if splay >= period {
 		return 0

@@ -172,7 +172,8 @@ devices:
 
         # Sync configuration
         sync_period: "30s"                 # Sync state every 30 seconds (default: 0, disabled)
-        sync_splay: "5s"                   # Random delay (0-5s) before each sync (default: 0)
+        sync_splay: "5s"                   # Random delay (0-5s) before each sync (default: auto = 10% of period, max 30s)
+                                           # Set to 0 to disable splay
 
         # Home Assistant discovery
         discovery:
@@ -726,7 +727,7 @@ devices:
 # - entity.ack_timeout: "250ms"
 # - entity.ack_retries: 3
 # - entity.sync_period: 0 (disabled)
-# - entity.sync_splay: 0
+# - entity.sync_splay: auto (10% of sync_period, max 30s)
 # - entity.discovery.optimistic: false
 # - entity.discovery.enabled_by_default: true
 # - entity.discovery.payload_available: "online"
