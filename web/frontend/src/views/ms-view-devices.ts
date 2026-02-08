@@ -467,7 +467,7 @@ export class MsViewDevices extends LitElement {
           child_id: 6 + idx,
           entity_type: "text",
           initial_value: "0",
-          object_id: "",
+          default_entity_id: "",
           discovery: { entity_category: "config", icon: "mdi:target" }
         })),
         // Target child configs (child 12-17) - internal
@@ -477,7 +477,7 @@ export class MsViewDevices extends LitElement {
           child_id: 12 + idx,
           entity_type: "text",
           initial_value: "0",
-          object_id: "",
+          default_entity_id: "",
           discovery: { entity_category: "config", icon: "mdi:target-variant" }
         })),
         // Ambient temperature (child 37)
@@ -526,7 +526,7 @@ export class MsViewDevices extends LitElement {
           child_id: 6 + idx,
           entity_type: "text",
           initial_value: "0",
-          object_id: "",
+          default_entity_id: "",
           discovery: { entity_category: "config", icon: "mdi:target" }
         })),
         // Target child configs (child 12-17) - internal
@@ -536,7 +536,7 @@ export class MsViewDevices extends LitElement {
           child_id: 12 + idx,
           entity_type: "text",
           initial_value: "0",
-          object_id: "",
+          default_entity_id: "",
           discovery: { entity_category: "config", icon: "mdi:target-variant" }
         })),
         // LP Target configs (child 18-23) - internal
@@ -546,7 +546,7 @@ export class MsViewDevices extends LitElement {
           child_id: 18 + idx,
           entity_type: "text",
           initial_value: "0",
-          object_id: "",
+          default_entity_id: "",
           discovery: { entity_category: "config", icon: "mdi:target-variant" }
         })),
         // LP Target child configs (child 24-29) - internal
@@ -556,7 +556,7 @@ export class MsViewDevices extends LitElement {
           child_id: 24 + idx,
           entity_type: "text",
           initial_value: "0",
-          object_id: "",
+          default_entity_id: "",
           discovery: { entity_category: "config", icon: "mdi:target-variant" }
         })),
         // LP inputs (child 30-35)
@@ -744,7 +744,7 @@ export class MsViewDevices extends LitElement {
           ${this._idField("Node ID", e.node_id, (v: any) => e.node_id = v, { hint: "Override device Node ID" })}
           ${this._field("Gateway", e.gateway || "", (v: string) => e.gateway = v, { hint: "Override device gateway" })}
           ${this._field("Initial Value", e.initial_value || "", (v: string) => e.initial_value = v)}
-          ${this._field("Object ID", e.object_id ?? "", (v: string) => e.object_id = v === "" ? undefined : v, { hint: "Custom HA entity ID, empty to exclude from discovery" })}
+          ${this._field("Default Entity ID", e.default_entity_id ?? "", (v: string) => e.default_entity_id = v === "" ? undefined : v, { hint: "Custom HA entity ID (e.g., switch.my_relay), empty to exclude from discovery" })}
 
           <div class="dialog-section">Capabilities</div>
           ${this._checkboxField("Read Only", e.read_only, (v: boolean) => e.read_only = v)}

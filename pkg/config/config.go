@@ -100,7 +100,7 @@ type Entity struct {
 	Name               string  `yaml:"name" json:"name"`
 	ID                 string  `yaml:"id" json:"id"`
 	UniqueID           string  `yaml:"unique_id,omitempty" json:"unique_id,omitempty"`
-	ObjectID           *string `yaml:"object_id,omitempty" json:"object_id,omitempty"`
+	DefaultEntityID    *string `yaml:"default_entity_id,omitempty" json:"default_entity_id,omitempty"`
 	ChildID            any     `yaml:"child_id" json:"child_id"`
 	NodeID             any     `yaml:"node_id,omitempty" json:"node_id,omitempty"`
 	Gateway            string  `yaml:"gateway,omitempty" json:"gateway,omitempty"`
@@ -720,15 +720,26 @@ func (e *Entity) GetEffectiveUniqueID(deviceID string) string {
 	return fmt.Sprintf("%s_%s", deviceID, e.ID)
 }
 
-// GetEffectiveObjectID returns the object ID for the entity, using ObjectID if set, otherwise device_id + entity_id
-// Returns empty string if ObjectID is explicitly set to empty string (to exclude from discovery)
-func (e *Entity) GetEffectiveObjectID(deviceID string) (string, bool) {
-	if e.ObjectID == nil {
+// GetEffectiveDefaultEntityID returns the default_entity_id for the entity
+// Returns empty string if DefaultEntityID is explicitly set to empty string (to exclude from discovery)
+// Format: {domain}.{base_id} where base_id is DefaultEntityID if set, otherwise device_id + entity_id
+func (e *Entity) GetEffectiveDefaultEntityID(deviceID string) (string, bool) {
+	// Determine the base ID (the part after the domain)
+	var baseID string
+	if e.DefaultEntityID == nil {
 		// Default: use device_id + entity_id format
-		return fmt.Sprintf("%s_%s", deviceID, e.ID), true
+		baseID = fmt.Sprintf("%s_%s", deviceID, e.ID)
+	} else if *e.DefaultEntityID == "" {
+		// Explicitly set to empty string - exclude from discovery
+		return "", false
+	} else {
+		// Custom value provided - use it as-is
+		baseID = *e.DefaultEntityID
 	}
-	// ObjectID was explicitly set - use it (could be empty string to exclude from discovery)
-	return *e.ObjectID, *e.ObjectID != ""
+
+	// Construct full default_entity_id in format: {domain}.{base_id}
+	domain := e.GetHAEntityType()
+	return fmt.Sprintf("%s.%s", domain, baseID), true
 }
 
 // GetEffectiveSyncPeriod returns the sync period for the entity, 0 means sync is disabled

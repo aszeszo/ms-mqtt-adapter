@@ -232,9 +232,11 @@ Core mapping fields:
 Identity fields:
 
 - `unique_id` (optional): if absent, defaults to `{device.id}_{entity.id}`
-- `object_id` (optional pointer string):
-  - if unset: defaults to `{device.id}_{entity.id}` and is included in discovery
-  - if set to `""` (empty string): `object_id` is omitted from discovery payload
+- `default_entity_id` (optional pointer string):
+  - if unset: defaults to `{domain}.{device.id}_{entity.id}` and is included in discovery
+  - if set to `""` (empty string): `default_entity_id` is omitted from discovery payload
+  - if set to custom value: uses that full entity ID (must include domain prefix, e.g., `switch.basement_main_power`)
+  - Format: `{domain}.{name}` where domain is determined by entity type (e.g., `binary_sensor`, `switch`, `sensor`)
 
 Read/write capability flags:
 
@@ -706,7 +708,7 @@ For every entity, the discovery JSON includes at minimum:
   - `identifiers: [device.id]`
   - `name`, `manufacturer`, `model`, `sw_version`, `hw_version`
   - optional: `configuration_url`, `suggested_area`, `connections`, `via_device`
-- `object_id` if included per 4.5
+- `default_entity_id` (format: `{domain}.{name}`) if configured per 4.5
 - `command_topic` for command-capable entities:
   `{topic_prefix}/entity/{unique_id}/set`
 

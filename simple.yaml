@@ -78,7 +78,7 @@ devices:
         entity_type: "switch"
         initial_value: "0"
         unique_id: "my_p2p_toggle_relay_3_1"
-        object_id: "relay_p2p_toggle"  # Custom object_id (default would be relay_3_1_p2p_toggle)
+        default_entity_id: "switch.relay_p2p_toggle"  # Custom default entity ID
         sync_period: "60s"  # Sync every minute
         request_ack: false  # Disable ACK for fast peer-to-peer communication
         discovery:

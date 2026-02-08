@@ -140,19 +140,18 @@ devices:
       #            Used in Home Assistant discovery: homeassistant/{entity_type}/{unique_id}/config
       #            Example: "relay_controller_main_power"
       #
-      # object_id: Home Assistant entity object_id (optional)
-      #            If not specified: defaults to "{device_id}_{entity_id}"
-      #            If set to "": excludes object_id from discovery entirely
-      #            Custom value: creates entity with that object_id (e.g., switch.custom_name)
-      #            This controls the entity_id in Home Assistant (e.g., switch.basement_main_power)
-      #            Example: "basement_main_power"
+      # default_entity_id: Home Assistant default entity ID (optional)
+      #            If not specified: defaults to "{domain}.{device_id}_{entity_id}"
+      #            If set to "": excludes default_entity_id from discovery entirely
+      #            Custom value: full entity ID in format "{domain}.{name}" (e.g., "switch.basement_main_power")
+      #            Example: "switch.basement_main_power"
       #
 
       # Standard switch entity with all options
       - name: "Main Power Relay"
         id: "main_power"
         unique_id: "relay_controller_main_power"   # Custom unique ID for MQTT topics
-        object_id: "basement_main_power"           # Custom Home Assistant object_id
+        default_entity_id: "switch.basement_main_power"  # Custom Home Assistant entity ID
         child_id: relay9_ch0                       # Using alias (resolves to 0)
         entity_type: "switch"                      # Entity type for Home Assistant
 
@@ -227,7 +226,7 @@ devices:
       - name: "Special Control"
         id: "special_control"
         unique_id: "basement_special_ctrl" # Custom unique ID for MQTT topics
-        object_id: ""                      # Empty string excludes object_id from HA discovery
+        default_entity_id: ""              # Empty string excludes default_entity_id from HA discovery
         child_id: relay9_ch3               # Using alias (resolves to 8)
         entity_type: "switch"
         sync_period: "60s"                 # Low-frequency sync

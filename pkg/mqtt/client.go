@@ -495,9 +495,10 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 		"device":      deviceInfo,
 	}
 
-	// Add object_id using the effective object_id logic
-	if objectID, shouldInclude := entity.GetEffectiveObjectID(device.ID); shouldInclude {
-		discoveryConfig["object_id"] = objectID
+	// Add default_entity_id
+	// Format: {domain}.{base_id} (e.g., "binary_sensor.piwnica_wlacznik_schody")
+	if defaultEntityID, shouldInclude := entity.GetEffectiveDefaultEntityID(device.ID); shouldInclude {
+		discoveryConfig["default_entity_id"] = defaultEntityID
 	}
 
 	// Add command topic only for entities that can receive commands
