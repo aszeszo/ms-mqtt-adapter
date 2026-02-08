@@ -43,198 +43,225 @@ devices:
   - name: "Relay 3 #1"
     id: "relay_3_1"
     node_id: relay_controller      # Using alias instead of numeric 3
-    manufacturer: "Nippy"
-    model: "Relay 3"
-    sw_version: "1.0"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "Nippy"
+      model: "Relay 3"
+      sw_version: "1.0"
+      hw_version: "1.0"
     entities:
       - name: "Relay 1"
         id: "relay_1"
         child_id: relay_1          # Using alias instead of numeric 0
         entity_type: "switch"
         initial_value: "0"
-        icon: "mdi:electric-switch"
         sync_period: "30s"  # Sync every 30 seconds
         request_ack: true   # Ensure reliable switching for this critical relay
+        discovery:
+          icon: "mdi:electric-switch"
       - name: "Relay 2"
         id: "relay_2"
         child_id: relay_2          # Using alias instead of numeric 1
         entity_type: "switch"
         initial_value: "0"
-        icon: "mdi:electric-switch"
+        discovery:
+          icon: "mdi:electric-switch"
       - name: "Relay 3"
         id: "relay_3"
         child_id: relay_3          # Using alias instead of numeric 2
         entity_type: "switch"
         initial_value: "0"
-        icon: "mdi:electric-switch"
+        discovery:
+          icon: "mdi:electric-switch"
       - name: "P2P Toggle"
         id: "p2p_toggle"
         child_id: p2p_toggle       # Using alias instead of numeric 4
         entity_type: "switch"
         initial_value: "0"
-        icon: "mdi:toggle-switch"
         unique_id: "my_p2p_toggle_relay_3_1"
         object_id: "relay_p2p_toggle"  # Custom object_id (default would be relay_3_1_p2p_toggle)
         sync_period: "60s"  # Sync every minute
         request_ack: false  # Disable ACK for fast peer-to-peer communication
+        discovery:
+          icon: "mdi:toggle-switch"
 
   - name: "Input 6 #1"
     id: "input_6_1"
     node_id: input_controller     # Using alias instead of numeric 1
-    manufacturer: "Nippy"
-    model: "Input 6"
-    sw_version: "1.0"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "Nippy"
+      model: "Input 6"
+      sw_version: "1.0"
+      hw_version: "1.0"
     entities:
       - name: "Input Button 1"
         id: "input_button_1"
         child_id: button_1        # Using alias instead of numeric 0
         entity_type: "binary_sensor"
         read_only: true
-        icon: "mdi:button-pointer"
+        discovery:
+          icon: "mdi:button-pointer"
       - name: "Input Button 2"
         id: "input_button_2"
         child_id: button_2        # Using alias instead of numeric 1
         entity_type: "binary_sensor"
         read_only: true
-        icon: "mdi:button-pointer"
+        discovery:
+          icon: "mdi:button-pointer"
       - name: "Input Button 3"
         id: "input_button_3"
         child_id: button_3        # Using alias instead of numeric 2
         entity_type: "binary_sensor"
         read_only: true
-        icon: "mdi:button-pointer"
+        discovery:
+          icon: "mdi:button-pointer"
       - name: "Input Button 4"
         id: "input_button_4"
         child_id: button_4        # Using alias instead of numeric 3
         entity_type: "binary_sensor"
         read_only: true
-        icon: "mdi:button-pointer"
+        discovery:
+          icon: "mdi:button-pointer"
       - name: "Input Button 5"
         id: "input_button_5"
         child_id: button_5        # Using alias instead of numeric 4
         entity_type: "binary_sensor"
         read_only: true
-        icon: "mdi:button-pointer"
+        discovery:
+          icon: "mdi:button-pointer"
       - name: "Input Button 6"
         id: "input_button_6"
         child_id: button_6        # Using alias instead of numeric 5
         entity_type: "binary_sensor"
         read_only: true
-        icon: "mdi:button-pointer"
+        discovery:
+          icon: "mdi:button-pointer"
       - name: "Ambient temperature"
         id: "ambient_temperature"
         child_id: temp_sensor     # Using alias instead of numeric 37
         entity_type: "temperature"
         read_only: true
-        entity_category: "diagnostic"
-        device_class: "temperature"
-        icon: "mdi:thermometer"
+        discovery:
+          entity_category: "diagnostic"
+          device_class: "temperature"
+          icon: "mdi:thermometer"
       - name: "MSG Int. (0-255 ms)"
         id: "msg_int"
         child_id: msg_interval    # Using alias instead of numeric 38
         entity_type: "text"
         initial_value: "200"
-        entity_category: "config"
-        icon: "mdi:clock-edit"
-      
+        discovery:
+          entity_category: "config"
+          icon: "mdi:clock-edit"
+
       # Target control values (V_TEXT messages) - writable
       - name: "A Target"
         id: "a_target"
         child_id: 6
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target"
       - name: "B Target"
         id: "b_target"
         child_id: 7
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target"
       - name: "C Target"
         id: "c_target"
         child_id: 8
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target"
       - name: "D Target"
         id: "d_target"
         child_id: 9
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target"
       - name: "E Target"
         id: "e_target"
         child_id: 10
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target"
       - name: "F Target"
         id: "f_target"
         child_id: 11
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target"
-      
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target"
+
       # Target child control values (V_TEXT messages) - writable
       - name: "A Target Child"
         id: "a_target_child"
         child_id: 12
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target-variant"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target-variant"
       - name: "B Target Child"
         id: "b_target_child"
         child_id: 13
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target-variant"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target-variant"
       - name: "C Target Child"
         id: "c_target_child"
         child_id: 14
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target-variant"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target-variant"
       - name: "D Target Child"
         id: "d_target_child"
         child_id: 15
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target-variant"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target-variant"
       - name: "E Target Child"
         id: "e_target_child"
         child_id: 16
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target-variant"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target-variant"
       - name: "F Target Child"
         id: "f_target_child"
         child_id: 17
         entity_type: "text"
         initial_value: "0"
-        entity_category: "config"
-        icon: "mdi:target-variant"
+        discovery:
+          entity_category: "config"
+          icon: "mdi:target-variant"
 
   # Example device demonstrating various entity types and mixed alias/numeric usage
   - name: "Smart Display #1"
     id: "smart_display_1"
     node_id: display_controller  # Using alias instead of numeric 6
-    manufacturer: "Nippy"
-    model: "Smart Display"
-    sw_version: "1.0"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "Nippy"
+      model: "Smart Display"
+      sw_version: "1.0"
+      hw_version: "1.0"
     entities:
       # Text entity - allows setting arbitrary text messages
       - name: "Display Message"
@@ -242,34 +269,38 @@ devices:
         child_id: display_text     # Using alias instead of numeric 0
         entity_type: "text"
         initial_value: "Hello World"
-        icon: "mdi:message-text"
-        entity_category: "config"
-      
+        discovery:
+          icon: "mdi:message-text"
+          entity_category: "config"
+
       # Number entity - allows setting numeric values with range
       - name: "Brightness Level"
         id: "brightness_level"
         child_id: brightness       # Using alias instead of numeric 1
         entity_type: "number"
         initial_value: "50"
-        min_value: 0
-        max_value: 100
-        step: 5
-        unit_of_measurement: "%"
-        icon: "mdi:brightness-6"
-        
+        discovery:
+          min_value: 0
+          max_value: 100
+          step: 5
+          unit_of_measurement: "%"
+          icon: "mdi:brightness-6"
+
       # Select entity - allows choosing from predefined options
       - name: "Display Mode"
         id: "display_mode"
         child_id: display_mode     # Using alias instead of numeric 2
         entity_type: "select"
         initial_value: "normal"
-        options: ["normal", "bright", "dim", "off"]
-        icon: "mdi:monitor"
-        
+        discovery:
+          options: ["normal", "bright", "dim", "off"]
+          icon: "mdi:monitor"
+
       # Switch entity - can still use numeric IDs when preferred
       - name: "Backlight Power"
         id: "backlight_power"
         child_id: backlight        # Using alias instead of numeric 3
         entity_type: "switch"
         initial_value: "1"
-        icon: "mdi:lightbulb"
+        discovery:
+          icon: "mdi:lightbulb"

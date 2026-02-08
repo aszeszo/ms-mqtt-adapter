@@ -72,85 +72,118 @@ type AdapterConfig struct {
 	HomeAssistantDiscovery *bool  `yaml:"homeassistant_discovery,omitempty" json:"homeassistant_discovery,omitempty"`
 }
 
-type Device struct {
-	Name             string     `yaml:"name" json:"name"`
-	ID               string     `yaml:"id" json:"id"`
-	NodeID           any        `yaml:"node_id,omitempty" json:"node_id,omitempty"`
-	Gateway          string     `yaml:"gateway,omitempty" json:"gateway,omitempty"`
+// DeviceDiscoveryConfig contains all fields that map to HA MQTT discovery device info keys.
+type DeviceDiscoveryConfig struct {
 	Manufacturer     string     `yaml:"manufacturer" json:"manufacturer"`
 	Model            string     `yaml:"model" json:"model"`
+	ModelID          string     `yaml:"model_id,omitempty" json:"model_id,omitempty"`
 	SWVersion        string     `yaml:"sw_version" json:"sw_version"`
 	HWVersion        string     `yaml:"hw_version" json:"hw_version"`
+	SerialNumber     string     `yaml:"serial_number,omitempty" json:"serial_number,omitempty"`
 	ConfigurationURL string     `yaml:"configuration_url,omitempty" json:"configuration_url,omitempty"`
 	SuggestedArea    string     `yaml:"suggested_area,omitempty" json:"suggested_area,omitempty"`
 	Connections      [][]string `yaml:"connections,omitempty" json:"connections,omitempty"`
 	ViaDevice        string     `yaml:"via_device,omitempty" json:"via_device,omitempty"`
-	Entities         []Entity   `yaml:"entities" json:"entities"`
+}
+
+type Device struct {
+	Name      string                `yaml:"name" json:"name"`
+	ID        string                `yaml:"id" json:"id"`
+	NodeID    any                   `yaml:"node_id,omitempty" json:"node_id,omitempty"`
+	Gateway   string                `yaml:"gateway,omitempty" json:"gateway,omitempty"`
+	Discovery DeviceDiscoveryConfig `yaml:"discovery,omitempty" json:"discovery,omitempty"`
+	Entities  []Entity              `yaml:"entities" json:"entities"`
 }
 
 // Entity represents a unified MySensors entity that can be an input (sensor), output (actuator), or both
 type Entity struct {
-	Name                   string  `yaml:"name" json:"name"`
-	ID                     string  `yaml:"id" json:"id"`
-	UniqueID               string  `yaml:"unique_id,omitempty" json:"unique_id,omitempty"`
-	ObjectID               *string `yaml:"object_id,omitempty" json:"object_id,omitempty"`
-	ChildID                any     `yaml:"child_id" json:"child_id"`
-	NodeID                 any     `yaml:"node_id,omitempty" json:"node_id,omitempty"`
-	Gateway                string  `yaml:"gateway,omitempty" json:"gateway,omitempty"`
+	Name               string  `yaml:"name" json:"name"`
+	ID                 string  `yaml:"id" json:"id"`
+	UniqueID           string  `yaml:"unique_id,omitempty" json:"unique_id,omitempty"`
+	ObjectID           *string `yaml:"object_id,omitempty" json:"object_id,omitempty"`
+	ChildID            any     `yaml:"child_id" json:"child_id"`
+	NodeID             any     `yaml:"node_id,omitempty" json:"node_id,omitempty"`
+	Gateway            string  `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 
-	EntityType             string `yaml:"entity_type" json:"entity_type"`
-	VariableType           string `yaml:"variable_type,omitempty" json:"variable_type,omitempty"`
+	EntityType         string `yaml:"entity_type" json:"entity_type"`
+	VariableType       string `yaml:"variable_type,omitempty" json:"variable_type,omitempty"`
 
-	ReadOnly               *bool  `yaml:"read_only,omitempty" json:"read_only,omitempty"`
-	WriteOnly              *bool  `yaml:"write_only,omitempty" json:"write_only,omitempty"`
+	ReadOnly           *bool  `yaml:"read_only,omitempty" json:"read_only,omitempty"`
+	WriteOnly          *bool  `yaml:"write_only,omitempty" json:"write_only,omitempty"`
 
-	SyncPeriod             *time.Duration `yaml:"sync_period,omitempty" json:"sync_period,omitempty"`
-	SyncSplay              *time.Duration `yaml:"sync_splay,omitempty" json:"sync_splay,omitempty"`
+	SyncPeriod         *time.Duration `yaml:"sync_period,omitempty" json:"sync_period,omitempty"`
+	SyncSplay          *time.Duration `yaml:"sync_splay,omitempty" json:"sync_splay,omitempty"`
 
-	AvailabilityWindow     *time.Duration `yaml:"availability_window,omitempty" json:"availability_window,omitempty"`
+	AvailabilityWindow *time.Duration `yaml:"availability_window,omitempty" json:"availability_window,omitempty"`
 
-	InitialValue           string   `yaml:"initial_value,omitempty" json:"initial_value,omitempty"`
-	MinValue               *float64 `yaml:"min_value,omitempty" json:"min_value,omitempty"`
-	MaxValue               *float64 `yaml:"max_value,omitempty" json:"max_value,omitempty"`
-	Step                   *float64 `yaml:"step,omitempty" json:"step,omitempty"`
-	Options                []string `yaml:"options,omitempty" json:"options,omitempty"`
+	InitialValue       string `yaml:"initial_value,omitempty" json:"initial_value,omitempty"`
 
-	StateClass             string `yaml:"state_class,omitempty" json:"state_class,omitempty"`
+	RequestAck         *bool          `yaml:"request_ack,omitempty" json:"request_ack,omitempty"`
+	AckTimeout         *time.Duration `yaml:"ack_timeout,omitempty" json:"ack_timeout,omitempty"`
+	AckRetries         *int           `yaml:"ack_retries,omitempty" json:"ack_retries,omitempty"`
 
-	Icon                   string `yaml:"icon" json:"icon"`
-	DeviceClass            string `yaml:"device_class" json:"device_class"`
-	EntityCategory         string `yaml:"entity_category,omitempty" json:"entity_category,omitempty"`
-	SuggestedArea          string `yaml:"suggested_area,omitempty" json:"suggested_area,omitempty"`
-	EnabledByDefault       *bool  `yaml:"enabled_by_default,omitempty" json:"enabled_by_default,omitempty"`
-	UnitOfMeasurement      string `yaml:"unit_of_measurement,omitempty" json:"unit_of_measurement,omitempty"`
+	// Discovery contains all HA MQTT discovery payload fields
+	Discovery          DiscoveryConfig `yaml:"discovery,omitempty" json:"discovery,omitempty"`
+}
 
-	AvailabilityTopic      string `yaml:"availability_topic,omitempty" json:"availability_topic,omitempty"`
-	PayloadAvailable       string `yaml:"payload_available,omitempty" json:"payload_available,omitempty"`
-	PayloadNotAvailable    string `yaml:"payload_not_available,omitempty" json:"payload_not_available,omitempty"`
-	PayloadOn              string `yaml:"payload_on,omitempty" json:"payload_on,omitempty"`
-	PayloadOff             string `yaml:"payload_off,omitempty" json:"payload_off,omitempty"`
-	StateOn                string `yaml:"state_on,omitempty" json:"state_on,omitempty"`
-	StateOff               string `yaml:"state_off,omitempty" json:"state_off,omitempty"`
-	PayloadOpen            string `yaml:"payload_open,omitempty" json:"payload_open,omitempty"`
-	PayloadClose           string `yaml:"payload_close,omitempty" json:"payload_close,omitempty"`
-	PayloadStop            string `yaml:"payload_stop,omitempty" json:"payload_stop,omitempty"`
-	StateOpen              string `yaml:"state_open,omitempty" json:"state_open,omitempty"`
-	StateClosed            string `yaml:"state_closed,omitempty" json:"state_closed,omitempty"`
-	QOS                    *int   `yaml:"qos,omitempty" json:"qos,omitempty"`
-	Retain                 *bool  `yaml:"retain,omitempty" json:"retain,omitempty"`
-	Optimistic             *bool  `yaml:"optimistic,omitempty" json:"optimistic,omitempty"`
-	OffDelay               *int   `yaml:"off_delay,omitempty" json:"off_delay,omitempty"`
-	ExpireAfter            *int   `yaml:"expire_after,omitempty" json:"expire_after,omitempty"`
+// DiscoveryConfig contains all fields that map to Home Assistant MQTT discovery payload keys.
+type DiscoveryConfig struct {
+	// Display & classification
+	Icon                       string `yaml:"icon,omitempty" json:"icon,omitempty"`
+	DeviceClass                string `yaml:"device_class,omitempty" json:"device_class,omitempty"`
+	EntityCategory             string `yaml:"entity_category,omitempty" json:"entity_category,omitempty"`
+	SuggestedArea              string `yaml:"suggested_area,omitempty" json:"suggested_area,omitempty"`
+	EntityPicture              string `yaml:"entity_picture,omitempty" json:"entity_picture,omitempty"`
+	EnabledByDefault           *bool  `yaml:"enabled_by_default,omitempty" json:"enabled_by_default,omitempty"`
 
-	RequestAck             *bool          `yaml:"request_ack,omitempty" json:"request_ack,omitempty"`
-	AckTimeout             *time.Duration `yaml:"ack_timeout,omitempty" json:"ack_timeout,omitempty"`
-	AckRetries             *int           `yaml:"ack_retries,omitempty" json:"ack_retries,omitempty"`
+	// Sensor/number configuration
+	UnitOfMeasurement          string   `yaml:"unit_of_measurement,omitempty" json:"unit_of_measurement,omitempty"`
+	StateClass                 string   `yaml:"state_class,omitempty" json:"state_class,omitempty"`
+	SuggestedDisplayPrecision  *int     `yaml:"suggested_display_precision,omitempty" json:"suggested_display_precision,omitempty"`
+	ForceUpdate                *bool    `yaml:"force_update,omitempty" json:"force_update,omitempty"`
+	MinValue                   *float64 `yaml:"min_value,omitempty" json:"min_value,omitempty"`
+	MaxValue                   *float64 `yaml:"max_value,omitempty" json:"max_value,omitempty"`
+	Step                       *float64 `yaml:"step,omitempty" json:"step,omitempty"`
+	Options                    []string `yaml:"options,omitempty" json:"options,omitempty"`
+	Mode                       string   `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Pattern                    string   `yaml:"pattern,omitempty" json:"pattern,omitempty"`
 
-	JSONAttributesTopic    string `yaml:"json_attributes_topic,omitempty" json:"json_attributes_topic,omitempty"`
-	JSONAttributesTemplate string `yaml:"json_attributes_template,omitempty" json:"json_attributes_template,omitempty"`
-	StateValueTemplate     string `yaml:"state_value_template,omitempty" json:"state_value_template,omitempty"`
-	CommandTemplate        string `yaml:"command_template,omitempty" json:"command_template,omitempty"`
-	ValueTemplate          string `yaml:"value_template,omitempty" json:"value_template,omitempty"`
+	// Availability
+	AvailabilityTopic          string `yaml:"availability_topic,omitempty" json:"availability_topic,omitempty"`
+	PayloadAvailable           string `yaml:"payload_available,omitempty" json:"payload_available,omitempty"`
+	PayloadNotAvailable        string `yaml:"payload_not_available,omitempty" json:"payload_not_available,omitempty"`
+
+	// Switch/light/binary_sensor payloads
+	PayloadOn                  string `yaml:"payload_on,omitempty" json:"payload_on,omitempty"`
+	PayloadOff                 string `yaml:"payload_off,omitempty" json:"payload_off,omitempty"`
+	StateOn                    string `yaml:"state_on,omitempty" json:"state_on,omitempty"`
+	StateOff                   string `yaml:"state_off,omitempty" json:"state_off,omitempty"`
+
+	// Cover payloads
+	PayloadOpen                string `yaml:"payload_open,omitempty" json:"payload_open,omitempty"`
+	PayloadClose               string `yaml:"payload_close,omitempty" json:"payload_close,omitempty"`
+	PayloadStop                string `yaml:"payload_stop,omitempty" json:"payload_stop,omitempty"`
+	StateOpen                  string `yaml:"state_open,omitempty" json:"state_open,omitempty"`
+	StateClosed                string `yaml:"state_closed,omitempty" json:"state_closed,omitempty"`
+	StateOpening               string `yaml:"state_opening,omitempty" json:"state_opening,omitempty"`
+	StateClosing               string `yaml:"state_closing,omitempty" json:"state_closing,omitempty"`
+	StateStopped               string `yaml:"state_stopped,omitempty" json:"state_stopped,omitempty"`
+
+	// MQTT transport
+	QOS                        *int  `yaml:"qos,omitempty" json:"qos,omitempty"`
+	Retain                     *bool `yaml:"retain,omitempty" json:"retain,omitempty"`
+	Optimistic                 *bool `yaml:"optimistic,omitempty" json:"optimistic,omitempty"`
+
+	// Timing
+	OffDelay                   *int `yaml:"off_delay,omitempty" json:"off_delay,omitempty"`
+	ExpireAfter                *int `yaml:"expire_after,omitempty" json:"expire_after,omitempty"`
+
+	// Templates
+	JSONAttributesTopic        string `yaml:"json_attributes_topic,omitempty" json:"json_attributes_topic,omitempty"`
+	JSONAttributesTemplate     string `yaml:"json_attributes_template,omitempty" json:"json_attributes_template,omitempty"`
+	StateValueTemplate         string `yaml:"state_value_template,omitempty" json:"state_value_template,omitempty"`
+	CommandTemplate            string `yaml:"command_template,omitempty" json:"command_template,omitempty"`
+	ValueTemplate              string `yaml:"value_template,omitempty" json:"value_template,omitempty"`
 }
 
 
@@ -961,106 +994,98 @@ func SetDefaults(config *Config) {
 			}
 			
 			// Set default units and state class based on entity type
+			d := &entity.Discovery
 			switch entity.EntityType {
 			case "temperature":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "°C"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "°C"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "humidity", "battery", "percentage", "level":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "%"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "%"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "voltage":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "V"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "V"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "current":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "A"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "A"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "pressure":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "hPa"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "hPa"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "weight":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "kg"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "kg"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "distance":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "m"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "m"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "light_level":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "lx"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "lx"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "watt":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "W"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "W"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "kwh":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "kWh"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "kWh"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "total_increasing"
+				if d.StateClass == "" {
+					d.StateClass = "total_increasing"
 				}
 			case "flow":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "m³/h"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "m³/h"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "measurement"
+				if d.StateClass == "" {
+					d.StateClass = "measurement"
 				}
 			case "volume":
-				if entity.UnitOfMeasurement == "" {
-					entity.UnitOfMeasurement = "m³"
+				if d.UnitOfMeasurement == "" {
+					d.UnitOfMeasurement = "m³"
 				}
-				if entity.StateClass == "" {
-					entity.StateClass = "total_increasing"
-				}
-			case "dimmer", "number":
-				if entity.UnitOfMeasurement == "" && entity.EntityType == "number" {
-					entity.UnitOfMeasurement = ""
-				}
-			case "text", "select", "custom", "sensor", "binary_sensor":
-				// Text, select, and sensor entities don't have default units or state class
-				if entity.StateClass == "" && (entity.EntityType == "text" || entity.EntityType == "select" || entity.EntityType == "binary_sensor") {
-					entity.StateClass = ""
+				if d.StateClass == "" {
+					d.StateClass = "total_increasing"
 				}
 			}
 
 			// Default optimistic mode to false (wait for device confirmation)
-			if entity.Optimistic == nil {
+			if d.Optimistic == nil {
 				optimistic := false
-				entity.Optimistic = &optimistic
+				d.Optimistic = &optimistic
 			}
 
 			// Default request_ack to true (require device confirmation)

@@ -298,8 +298,8 @@ func (c *Client) getEffectiveOptimisticModeForEntity(deviceID, entityID string) 
 			for _, entity := range device.Entities {
 				if entity.ID == entityID {
 					// Entity-level only setting, defaults to false (non-optimistic)
-					if entity.Optimistic != nil {
-						return *entity.Optimistic
+					if entity.Discovery.Optimistic != nil {
+						return *entity.Discovery.Optimistic
 					}
 					break
 				}
@@ -356,27 +356,34 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 
 	c.logger.Debug("Publishing/updating Home Assistant discovery configuration", "device", device.Name)
 
+	dd := device.Discovery // local shorthand for device discovery fields
 	deviceInfo := map[string]interface{}{
 		"identifiers":  []string{device.ID},
 		"name":         device.Name,
-		"manufacturer": device.Manufacturer,
-		"model":        device.Model,
-		"sw_version":   device.SWVersion,
-		"hw_version":   device.HWVersion,
+		"manufacturer": dd.Manufacturer,
+		"model":        dd.Model,
+		"sw_version":   dd.SWVersion,
+		"hw_version":   dd.HWVersion,
 	}
 
 	// Add optional device fields
-	if device.ConfigurationURL != "" {
-		deviceInfo["configuration_url"] = device.ConfigurationURL
+	if dd.ModelID != "" {
+		deviceInfo["model_id"] = dd.ModelID
 	}
-	if device.SuggestedArea != "" {
-		deviceInfo["suggested_area"] = device.SuggestedArea
+	if dd.SerialNumber != "" {
+		deviceInfo["serial_number"] = dd.SerialNumber
 	}
-	if len(device.Connections) > 0 {
-		deviceInfo["connections"] = device.Connections
+	if dd.ConfigurationURL != "" {
+		deviceInfo["configuration_url"] = dd.ConfigurationURL
 	}
-	if device.ViaDevice != "" {
-		deviceInfo["via_device"] = device.ViaDevice
+	if dd.SuggestedArea != "" {
+		deviceInfo["suggested_area"] = dd.SuggestedArea
+	}
+	if len(dd.Connections) > 0 {
+		deviceInfo["connections"] = dd.Connections
+	}
+	if dd.ViaDevice != "" {
+		deviceInfo["via_device"] = dd.ViaDevice
 	}
 
 	// Publish discovery for entities
@@ -395,7 +402,7 @@ func (c *Client) PublishHomeAssistantDiscovery(device config.Device) error {
 		c.logger.Debug("Published/updated Home Assistant discovery for entity", "device", device.Name, "entity", entity.Name, "topic", discoveryTopic)
 
 		// Publish availability status as "online" (unless disabled)
-		if entity.AvailabilityTopic != "none" {
+		if entity.Discovery.AvailabilityTopic != "none" {
 			if err := c.PublishEntityAvailability(device, entity, true); err != nil {
 				return fmt.Errorf("failed to publish entity availability: %w", err)
 			}
@@ -466,10 +473,10 @@ func (c *Client) PublishEntityAvailability(device config.Device, entity config.E
 	}
 
 	// Use custom payloads if specified
-	if available && entity.PayloadAvailable != "" {
-		payload = entity.PayloadAvailable
-	} else if !available && entity.PayloadNotAvailable != "" {
-		payload = entity.PayloadNotAvailable
+	if available && entity.Discovery.PayloadAvailable != "" {
+		payload = entity.Discovery.PayloadAvailable
+	} else if !available && entity.Discovery.PayloadNotAvailable != "" {
+		payload = entity.Discovery.PayloadNotAvailable
 	}
 
 	c.logger.Debug("Publishing entity availability", "device", device.Name, "entity", entity.Name, "topic", availabilityTopic, "payload", payload)
@@ -478,6 +485,8 @@ func (c *Client) PublishEntityAvailability(device config.Device, entity config.E
 
 // createEntityDiscoveryConfig creates Home Assistant discovery configuration for entities
 func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config.Entity, deviceInfo map[string]interface{}) (string, map[string]interface{}) {
+	d := entity.Discovery // local shorthand for discovery fields
+
 	var haEntityType string
 	discoveryConfig := map[string]interface{}{
 		"name":        entity.Name,
@@ -496,147 +505,179 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 		discoveryConfig["command_topic"] = fmt.Sprintf("%s/entity/%s/set", c.adapterCfg.TopicPrefix, entity.GetEffectiveUniqueID(device.ID))
 	}
 
+	// Origin object - identifies the integration that created this entity
+	discoveryConfig["origin"] = map[string]string{
+		"name":        "ms-mqtt-adapter",
+		"sw_version":  "2.2.6",
+		"support_url": "https://github.com/aszeszo/ms-mqtt-adapter",
+	}
+
 	// Map entity type to Home Assistant entity type and configure appropriately
 	switch entity.EntityType {
 	case "switch":
 		haEntityType = "switch"
-		// Set payload values with defaults
-		if entity.PayloadOn != "" {
-			discoveryConfig["payload_on"] = entity.PayloadOn
+		if d.PayloadOn != "" {
+			discoveryConfig["payload_on"] = d.PayloadOn
 		} else {
 			discoveryConfig["payload_on"] = "1"
 		}
-		if entity.PayloadOff != "" {
-			discoveryConfig["payload_off"] = entity.PayloadOff
+		if d.PayloadOff != "" {
+			discoveryConfig["payload_off"] = d.PayloadOff
 		} else {
 			discoveryConfig["payload_off"] = "0"
 		}
-		if entity.StateOn != "" {
-			discoveryConfig["state_on"] = entity.StateOn
+		if d.StateOn != "" {
+			discoveryConfig["state_on"] = d.StateOn
 		}
-		if entity.StateOff != "" {
-			discoveryConfig["state_off"] = entity.StateOff
+		if d.StateOff != "" {
+			discoveryConfig["state_off"] = d.StateOff
 		}
 
 	case "light":
 		haEntityType = "light"
-		// Set payload values with defaults
-		if entity.PayloadOn != "" {
-			discoveryConfig["payload_on"] = entity.PayloadOn
+		if d.PayloadOn != "" {
+			discoveryConfig["payload_on"] = d.PayloadOn
 		} else {
 			discoveryConfig["payload_on"] = "1"
 		}
-		if entity.PayloadOff != "" {
-			discoveryConfig["payload_off"] = entity.PayloadOff
+		if d.PayloadOff != "" {
+			discoveryConfig["payload_off"] = d.PayloadOff
 		} else {
 			discoveryConfig["payload_off"] = "0"
 		}
-		if entity.StateOn != "" {
-			discoveryConfig["state_on"] = entity.StateOn
+		if d.StateOn != "" {
+			discoveryConfig["state_on"] = d.StateOn
 		}
-		if entity.StateOff != "" {
-			discoveryConfig["state_off"] = entity.StateOff
+		if d.StateOff != "" {
+			discoveryConfig["state_off"] = d.StateOff
 		}
 
 	case "dimmer":
 		haEntityType = "light"
-		if entity.MinValue != nil {
-			discoveryConfig["min_mireds"] = *entity.MinValue
+		if d.MinValue != nil {
+			discoveryConfig["min_mireds"] = *d.MinValue
 		}
-		if entity.MaxValue != nil {
-			discoveryConfig["max_mireds"] = *entity.MaxValue
+		if d.MaxValue != nil {
+			discoveryConfig["max_mireds"] = *d.MaxValue
 		}
 
 	case "text":
 		if entity.IsReadOnly() {
-			// For read-only text entities, use sensor instead of text
 			haEntityType = "sensor"
 		} else {
 			haEntityType = "text"
+			if d.Mode != "" {
+				discoveryConfig["mode"] = d.Mode
+			}
+			if d.Pattern != "" {
+				discoveryConfig["pattern"] = d.Pattern
+			}
 		}
 
 	case "number":
 		haEntityType = "number"
-		if entity.MinValue != nil {
-			discoveryConfig["min"] = *entity.MinValue
+		if d.MinValue != nil {
+			discoveryConfig["min"] = *d.MinValue
 		}
-		if entity.MaxValue != nil {
-			discoveryConfig["max"] = *entity.MaxValue
+		if d.MaxValue != nil {
+			discoveryConfig["max"] = *d.MaxValue
 		}
-		if entity.Step != nil {
-			discoveryConfig["step"] = *entity.Step
+		if d.Step != nil {
+			discoveryConfig["step"] = *d.Step
 		}
-		if entity.UnitOfMeasurement != "" {
-			discoveryConfig["unit_of_measurement"] = entity.UnitOfMeasurement
+		if d.UnitOfMeasurement != "" {
+			discoveryConfig["unit_of_measurement"] = d.UnitOfMeasurement
+		}
+		if d.Mode != "" {
+			discoveryConfig["mode"] = d.Mode
 		}
 
 	case "select":
 		haEntityType = "select"
-		if len(entity.Options) > 0 {
-			discoveryConfig["options"] = entity.Options
+		if len(d.Options) > 0 {
+			discoveryConfig["options"] = d.Options
 		}
 
 	case "cover":
 		haEntityType = "cover"
-		// Cover-specific payloads
-		if entity.PayloadOpen != "" {
-			discoveryConfig["payload_open"] = entity.PayloadOpen
+		if d.PayloadOpen != "" {
+			discoveryConfig["payload_open"] = d.PayloadOpen
 		} else {
 			discoveryConfig["payload_open"] = "OPEN"
 		}
-		if entity.PayloadClose != "" {
-			discoveryConfig["payload_close"] = entity.PayloadClose
+		if d.PayloadClose != "" {
+			discoveryConfig["payload_close"] = d.PayloadClose
 		} else {
 			discoveryConfig["payload_close"] = "CLOSE"
 		}
-		if entity.PayloadStop != "" {
-			discoveryConfig["payload_stop"] = entity.PayloadStop
+		if d.PayloadStop != "" {
+			discoveryConfig["payload_stop"] = d.PayloadStop
 		} else {
 			discoveryConfig["payload_stop"] = "STOP"
 		}
-		if entity.StateOpen != "" {
-			discoveryConfig["state_open"] = entity.StateOpen
+		if d.StateOpen != "" {
+			discoveryConfig["state_open"] = d.StateOpen
 		}
-		if entity.StateClosed != "" {
-			discoveryConfig["state_closed"] = entity.StateClosed
+		if d.StateClosed != "" {
+			discoveryConfig["state_closed"] = d.StateClosed
+		}
+		if d.StateOpening != "" {
+			discoveryConfig["state_opening"] = d.StateOpening
+		}
+		if d.StateClosing != "" {
+			discoveryConfig["state_closing"] = d.StateClosing
+		}
+		if d.StateStopped != "" {
+			discoveryConfig["state_stopped"] = d.StateStopped
 		}
 
 	case "binary_sensor":
 		haEntityType = "binary_sensor"
-		// Set payload values with defaults
-		if entity.PayloadOn != "" {
-			discoveryConfig["payload_on"] = entity.PayloadOn
+		if d.PayloadOn != "" {
+			discoveryConfig["payload_on"] = d.PayloadOn
 		} else {
 			discoveryConfig["payload_on"] = "1"
 		}
-		if entity.PayloadOff != "" {
-			discoveryConfig["payload_off"] = entity.PayloadOff
+		if d.PayloadOff != "" {
+			discoveryConfig["payload_off"] = d.PayloadOff
 		} else {
 			discoveryConfig["payload_off"] = "0"
 		}
-		if entity.StateOn != "" {
-			discoveryConfig["state_on"] = entity.StateOn
+		if d.StateOn != "" {
+			discoveryConfig["state_on"] = d.StateOn
 		}
-		if entity.StateOff != "" {
-			discoveryConfig["state_off"] = entity.StateOff
+		if d.StateOff != "" {
+			discoveryConfig["state_off"] = d.StateOff
 		}
-		if entity.OffDelay != nil {
-			discoveryConfig["off_delay"] = *entity.OffDelay
+		if d.OffDelay != nil {
+			discoveryConfig["off_delay"] = *d.OffDelay
 		}
-		if entity.ExpireAfter != nil {
-			discoveryConfig["expire_after"] = *entity.ExpireAfter
+		if d.ExpireAfter != nil {
+			discoveryConfig["expire_after"] = *d.ExpireAfter
+		}
+		if d.ForceUpdate != nil {
+			discoveryConfig["force_update"] = *d.ForceUpdate
 		}
 
 	case "sensor", "temperature", "humidity", "battery", "voltage", "current", "pressure", "level", "percentage", "weight", "distance", "light_level", "watt", "kwh", "flow", "volume", "ph", "orp", "ec", "var", "va", "power_factor", "custom", "position", "uv", "rain", "rainrate", "wind", "gust", "direction", "impedance":
 		haEntityType = "sensor"
-		if entity.UnitOfMeasurement != "" {
-			discoveryConfig["unit_of_measurement"] = entity.UnitOfMeasurement
+		if d.UnitOfMeasurement != "" {
+			discoveryConfig["unit_of_measurement"] = d.UnitOfMeasurement
 		}
-		if entity.StateClass != "" {
-			discoveryConfig["state_class"] = entity.StateClass
+		if d.StateClass != "" {
+			discoveryConfig["state_class"] = d.StateClass
 		}
-		if entity.ValueTemplate != "" {
-			discoveryConfig["value_template"] = entity.ValueTemplate
+		if d.ValueTemplate != "" {
+			discoveryConfig["value_template"] = d.ValueTemplate
+		}
+		if d.ExpireAfter != nil {
+			discoveryConfig["expire_after"] = *d.ExpireAfter
+		}
+		if d.ForceUpdate != nil {
+			discoveryConfig["force_update"] = *d.ForceUpdate
+		}
+		if d.SuggestedDisplayPrecision != nil {
+			discoveryConfig["suggested_display_precision"] = *d.SuggestedDisplayPrecision
 		}
 
 	default:
@@ -645,35 +686,38 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 	}
 
 	// Apply common configurations
-	if entity.Icon != "" {
-		discoveryConfig["icon"] = entity.Icon
+	if d.Icon != "" {
+		discoveryConfig["icon"] = d.Icon
 	}
-	if entity.DeviceClass != "" {
-		discoveryConfig["device_class"] = entity.DeviceClass
+	if d.DeviceClass != "" {
+		discoveryConfig["device_class"] = d.DeviceClass
 	}
-	if entity.EntityCategory != "" {
-		discoveryConfig["entity_category"] = entity.EntityCategory
+	if d.EntityCategory != "" {
+		discoveryConfig["entity_category"] = d.EntityCategory
 	}
-	if entity.SuggestedArea != "" {
-		discoveryConfig["suggested_area"] = entity.SuggestedArea
+	if d.SuggestedArea != "" {
+		discoveryConfig["suggested_area"] = d.SuggestedArea
 	}
-	if entity.EnabledByDefault != nil {
-		discoveryConfig["enabled_by_default"] = *entity.EnabledByDefault
+	if d.EntityPicture != "" {
+		discoveryConfig["entity_picture"] = d.EntityPicture
 	}
-	if entity.QOS != nil {
-		discoveryConfig["qos"] = *entity.QOS
+	if d.EnabledByDefault != nil {
+		discoveryConfig["enabled_by_default"] = *d.EnabledByDefault
+	}
+	if d.QOS != nil {
+		discoveryConfig["qos"] = *d.QOS
 	} else {
 		discoveryConfig["qos"] = 0
 	}
-	if entity.Retain != nil {
-		discoveryConfig["retain"] = *entity.Retain
+	if d.Retain != nil {
+		discoveryConfig["retain"] = *d.Retain
 	} else {
 		discoveryConfig["retain"] = true
 	}
-	if entity.Optimistic != nil {
-		discoveryConfig["optimistic"] = *entity.Optimistic
+	if d.Optimistic != nil {
+		discoveryConfig["optimistic"] = *d.Optimistic
 	} else {
-		discoveryConfig["optimistic"] = false  // Default to false (wait for device confirmation)
+		discoveryConfig["optimistic"] = false // Default to false (wait for device confirmation)
 	}
 
 	// Availability configuration
@@ -681,24 +725,22 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 	// If empty (not set), use default auto-generated topic
 	// If "default", use default auto-generated topic
 	// Otherwise use custom topic
-	if entity.AvailabilityTopic != "none" {
+	if d.AvailabilityTopic != "none" {
 		var availabilityTopic string
-		if entity.AvailabilityTopic == "" || entity.AvailabilityTopic == "default" {
-			// Use default availability topic
+		if d.AvailabilityTopic == "" || d.AvailabilityTopic == "default" {
 			uniqueID := entity.GetEffectiveUniqueID(device.ID)
 			availabilityTopic = fmt.Sprintf("%s/entity/%s/availability", c.adapterCfg.TopicPrefix, uniqueID)
 		} else {
-			// Use custom availability topic
-			availabilityTopic = entity.AvailabilityTopic
+			availabilityTopic = d.AvailabilityTopic
 		}
 		discoveryConfig["availability_topic"] = availabilityTopic
-		if entity.PayloadAvailable != "" {
-			discoveryConfig["payload_available"] = entity.PayloadAvailable
+		if d.PayloadAvailable != "" {
+			discoveryConfig["payload_available"] = d.PayloadAvailable
 		} else {
 			discoveryConfig["payload_available"] = "online"
 		}
-		if entity.PayloadNotAvailable != "" {
-			discoveryConfig["payload_not_available"] = entity.PayloadNotAvailable
+		if d.PayloadNotAvailable != "" {
+			discoveryConfig["payload_not_available"] = d.PayloadNotAvailable
 		} else {
 			discoveryConfig["payload_not_available"] = "offline"
 		}
@@ -709,20 +751,20 @@ func (c *Client) createEntityDiscoveryConfig(device config.Device, entity config
 	}
 
 	// Template configuration
-	if entity.JSONAttributesTopic != "" {
-		discoveryConfig["json_attributes_topic"] = entity.JSONAttributesTopic
+	if d.JSONAttributesTopic != "" {
+		discoveryConfig["json_attributes_topic"] = d.JSONAttributesTopic
 	}
-	if entity.JSONAttributesTemplate != "" {
-		discoveryConfig["json_attributes_template"] = entity.JSONAttributesTemplate
+	if d.JSONAttributesTemplate != "" {
+		discoveryConfig["json_attributes_template"] = d.JSONAttributesTemplate
 	}
-	if entity.StateValueTemplate != "" {
-		discoveryConfig["state_value_template"] = entity.StateValueTemplate
+	if d.StateValueTemplate != "" {
+		discoveryConfig["state_value_template"] = d.StateValueTemplate
 	}
-	if entity.CommandTemplate != "" {
-		discoveryConfig["command_template"] = entity.CommandTemplate
+	if d.CommandTemplate != "" {
+		discoveryConfig["command_template"] = d.CommandTemplate
 	}
-	if entity.ValueTemplate != "" {
-		discoveryConfig["value_template"] = entity.ValueTemplate
+	if d.ValueTemplate != "" {
+		discoveryConfig["value_template"] = d.ValueTemplate
 	}
 
 	return haEntityType, discoveryConfig

@@ -228,7 +228,7 @@ export class MsViewDevices extends LitElement {
             </div>
           </div>
           <div class="meta">
-            ${dev.manufacturer || ""} ${dev.model || ""}${dev.gateway ? ` | GW: ${dev.gateway}` : ""} | Node: ${dev.node_id ?? "per-entity"} | ID: ${dev.id}
+            ${dev.discovery?.manufacturer || ""} ${dev.discovery?.model || ""}${dev.gateway ? ` | GW: ${dev.gateway}` : ""} | Node: ${dev.node_id ?? "per-entity"} | ID: ${dev.id}
           </div>
           <button class="toggle-btn" @click=${() => this._expanded = expanded ? null : dev.id}>
             ${expanded ? "Hide entities" : "Show entities"}
@@ -267,13 +267,13 @@ export class MsViewDevices extends LitElement {
 
   // --- Device dialog ---
   private _addDevice() {
-    this._editingDevice = { name: "", id: "", node_id: null, gateway: "", manufacturer: "", model: "", sw_version: "", hw_version: "", configuration_url: "", suggested_area: "", via_device: "", entities: [] };
+    this._editingDevice = { name: "", id: "", node_id: null, gateway: "", discovery: { manufacturer: "", model: "", sw_version: "", hw_version: "", configuration_url: "", suggested_area: "", via_device: "" }, entities: [] };
     this._isNewDevice = true;
     this._showDeviceDialog = true;
   }
 
   private _editDevice(dev: any) {
-    this._editingDevice = { ...dev };
+    this._editingDevice = { ...dev, discovery: { ...(dev.discovery || {}) } };
     this._isNewDevice = false;
     this._showDeviceDialog = true;
   }
@@ -300,20 +300,17 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: nodeId,
-      manufacturer: "nippy",
-      model: "DIN Relay 9",
-      sw_version: "1.0",
-      hw_version: "1.0",
+      discovery: { manufacturer: "nippy", model: "DIN Relay 9", sw_version: "1.0", hw_version: "1.0" },
       entities: [
-        { name: "Ambient temperature", id: "ambient_temperature", child_id: 9, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
-        { name: "P2P Toggle", id: "p2p_toggle", child_id: 10, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch" },
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 9, entity_type: "temperature", read_only: true, discovery: { entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" } },
+        { name: "P2P Toggle", id: "p2p_toggle", child_id: 10, entity_type: "switch", initial_value: "0", discovery: { icon: "mdi:toggle-switch" } },
         ...Array.from({ length: 9 }, (_, i) => ({
           name: `Relay ${i + 1}`,
           id: `relay_${i + 1}`,
           child_id: `relay9_ch${i}`,
           entity_type: "switch",
           initial_value: "0",
-          icon: "hue:socket-eu"
+          discovery: { icon: "hue:socket-eu" }
         }))
       ]
     };
@@ -340,10 +337,7 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: nodeId,
-      manufacturer: "nippy",
-      model: "DIN Relay 3",
-      sw_version: "1.0",
-      hw_version: "1.0",
+      discovery: { manufacturer: "nippy", model: "DIN Relay 3", sw_version: "1.0", hw_version: "1.0" },
       entities: [
         ...Array.from({ length: 3 }, (_, i) => ({
           name: `Relay ${i + 1}`,
@@ -351,10 +345,10 @@ export class MsViewDevices extends LitElement {
           child_id: `relay3_ch${i}`,
           entity_type: "switch",
           initial_value: "0",
-          icon: "hue:socket-eu"
+          discovery: { icon: "hue:socket-eu" }
         })),
-        { name: "Ambient temperature", id: "ambient_temperature", child_id: 3, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
-        { name: "P2P Toggle", id: "p2p_toggle", child_id: 4, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch" },
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 3, entity_type: "temperature", read_only: true, discovery: { entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" } },
+        { name: "P2P Toggle", id: "p2p_toggle", child_id: 4, entity_type: "switch", initial_value: "0", discovery: { icon: "mdi:toggle-switch" } },
       ]
     };
     try {
@@ -380,20 +374,17 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: nodeId,
-      manufacturer: "nippy",
-      model: "DIN Relay 9",
-      sw_version: "1.0",
-      hw_version: "1.0",
+      discovery: { manufacturer: "nippy", model: "DIN Relay 9", sw_version: "1.0", hw_version: "1.0" },
       entities: [
-        { name: "Ambient temperature", id: "ambient_temperature", child_id: 9, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
-        { name: "P2P Toggle", id: "p2p_toggle", child_id: 10, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch" },
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 9, entity_type: "temperature", read_only: true, discovery: { entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" } },
+        { name: "P2P Toggle", id: "p2p_toggle", child_id: 10, entity_type: "switch", initial_value: "0", discovery: { icon: "mdi:toggle-switch" } },
         ...Array.from({ length: 9 }, (_, i) => ({
           name: `Relay ${i + 1}`,
           id: `relay_${i + 1}`,
           child_id: `relay9_ch${i}`,
           entity_type: "switch",
           initial_value: "0",
-          icon: "hue:socket-eu",
+          discovery: { icon: "hue:socket-eu" },
           sync_period: 30 * 1e9  // 30 seconds
         }))
       ]
@@ -421,10 +412,7 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: nodeId,
-      manufacturer: "nippy",
-      model: "DIN Relay 3",
-      sw_version: "1.0",
-      hw_version: "1.0",
+      discovery: { manufacturer: "nippy", model: "DIN Relay 3", sw_version: "1.0", hw_version: "1.0" },
       entities: [
         ...Array.from({ length: 3 }, (_, i) => ({
           name: `Relay ${i + 1}`,
@@ -432,11 +420,11 @@ export class MsViewDevices extends LitElement {
           child_id: `relay3_ch${i}`,
           entity_type: "switch",
           initial_value: "0",
-          icon: "hue:socket-eu",
+          discovery: { icon: "hue:socket-eu" },
           sync_period: 30 * 1e9  // 30 seconds
         })),
-        { name: "Ambient temperature", id: "ambient_temperature", child_id: 3, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
-        { name: "P2P Toggle", id: "p2p_toggle", child_id: 4, entity_type: "switch", initial_value: "0", icon: "mdi:toggle-switch" },
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 3, entity_type: "temperature", read_only: true, discovery: { entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" } },
+        { name: "P2P Toggle", id: "p2p_toggle", child_id: 4, entity_type: "switch", initial_value: "0", discovery: { icon: "mdi:toggle-switch" } },
       ]
     };
     try {
@@ -461,10 +449,7 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: nodeId,
-      manufacturer: "nippy",
-      model: "DIN Input 6",
-      sw_version: "1.9.36",
-      hw_version: "1.0",
+      discovery: { manufacturer: "nippy", model: "DIN Input 6", sw_version: "1.9.36", hw_version: "1.0" },
       entities: [
         // Regular inputs (child 0-5)
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
@@ -473,7 +458,7 @@ export class MsViewDevices extends LitElement {
           child_id: idx,
           entity_type: "binary_sensor",
           read_only: true,
-          icon: "hue:friends-of-hue-senic"
+          discovery: { icon: "hue:friends-of-hue-senic" }
         })),
         // Target configs (child 6-11) - internal
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
@@ -482,9 +467,8 @@ export class MsViewDevices extends LitElement {
           child_id: 6 + idx,
           entity_type: "text",
           initial_value: "0",
-          entity_category: "config",
           object_id: "",
-          icon: "mdi:target"
+          discovery: { entity_category: "config", icon: "mdi:target" }
         })),
         // Target child configs (child 12-17) - internal
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
@@ -493,14 +477,13 @@ export class MsViewDevices extends LitElement {
           child_id: 12 + idx,
           entity_type: "text",
           initial_value: "0",
-          entity_category: "config",
           object_id: "",
-          icon: "mdi:target-variant"
+          discovery: { entity_category: "config", icon: "mdi:target-variant" }
         })),
         // Ambient temperature (child 37)
-        { name: "Ambient temperature", id: "ambient_temperature", child_id: 37, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 37, entity_type: "temperature", read_only: true, discovery: { entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" } },
         // MSG Interval config (child 38) - internal
-        { name: "MSG Int. (0-255 ms)", id: "msg_int", child_id: 38, entity_type: "text", initial_value: "200", entity_category: "config", object_id: "", icon: "mdi:clock-edit" },
+        { name: "MSG Int. (0-255 ms)", id: "msg_int", child_id: 38, entity_type: "text", initial_value: "200", object_id: "", discovery: { entity_category: "config", icon: "mdi:clock-edit" } },
       ]
     };
     try {
@@ -525,10 +508,7 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: nodeId,
-      manufacturer: "nippy",
-      model: "DIN Input 6 LP",
-      sw_version: "1.9.36",
-      hw_version: "1.0",
+      discovery: { manufacturer: "nippy", model: "DIN Input 6 LP", sw_version: "1.9.36", hw_version: "1.0" },
       entities: [
         // Regular inputs (child 0-5)
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
@@ -537,7 +517,7 @@ export class MsViewDevices extends LitElement {
           child_id: idx,
           entity_type: "binary_sensor",
           read_only: true,
-          icon: "hue:friends-of-hue-senic"
+          discovery: { icon: "hue:friends-of-hue-senic" }
         })),
         // Target configs (child 6-11) - internal
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
@@ -546,9 +526,8 @@ export class MsViewDevices extends LitElement {
           child_id: 6 + idx,
           entity_type: "text",
           initial_value: "0",
-          entity_category: "config",
           object_id: "",
-          icon: "mdi:target"
+          discovery: { entity_category: "config", icon: "mdi:target" }
         })),
         // Target child configs (child 12-17) - internal
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
@@ -557,9 +536,8 @@ export class MsViewDevices extends LitElement {
           child_id: 12 + idx,
           entity_type: "text",
           initial_value: "0",
-          entity_category: "config",
           object_id: "",
-          icon: "mdi:target-variant"
+          discovery: { entity_category: "config", icon: "mdi:target-variant" }
         })),
         // LP Target configs (child 18-23) - internal
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
@@ -568,9 +546,8 @@ export class MsViewDevices extends LitElement {
           child_id: 18 + idx,
           entity_type: "text",
           initial_value: "0",
-          entity_category: "config",
           object_id: "",
-          icon: "mdi:target-variant"
+          discovery: { entity_category: "config", icon: "mdi:target-variant" }
         })),
         // LP Target child configs (child 24-29) - internal
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
@@ -579,9 +556,8 @@ export class MsViewDevices extends LitElement {
           child_id: 24 + idx,
           entity_type: "text",
           initial_value: "0",
-          entity_category: "config",
           object_id: "",
-          icon: "mdi:target-variant"
+          discovery: { entity_category: "config", icon: "mdi:target-variant" }
         })),
         // LP inputs (child 30-35)
         ...["A", "B", "C", "D", "E", "F"].map((letter, idx) => ({
@@ -590,14 +566,14 @@ export class MsViewDevices extends LitElement {
           child_id: 30 + idx,
           entity_type: "binary_sensor",
           read_only: true,
-          icon: "hue:friends-of-hue-senic"
+          discovery: { icon: "hue:friends-of-hue-senic" }
         })),
         // LP Time config (child 36) - internal
-        { name: "LP Time (1-5 s)", id: "lp_time", child_id: 36, entity_type: "text", initial_value: "3", entity_category: "config", object_id: "", icon: "mdi:timer" },
+        { name: "LP Time (1-5 s)", id: "lp_time", child_id: 36, entity_type: "text", initial_value: "3", object_id: "", discovery: { entity_category: "config", icon: "mdi:timer" } },
         // Ambient temperature (child 37)
-        { name: "Ambient temperature", id: "ambient_temperature", child_id: 37, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" },
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 37, entity_type: "temperature", read_only: true, discovery: { entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer" } },
         // MSG Interval config (child 38) - internal
-        { name: "MSG Int. (0-255 ms)", id: "msg_int", child_id: 38, entity_type: "text", initial_value: "200", entity_category: "config", object_id: "", icon: "mdi:clock-edit" },
+        { name: "MSG Int. (0-255 ms)", id: "msg_int", child_id: 38, entity_type: "text", initial_value: "200", object_id: "", discovery: { entity_category: "config", icon: "mdi:clock-edit" } },
       ]
     };
     try {
@@ -621,12 +597,9 @@ export class MsViewDevices extends LitElement {
       name: name,
       id: deviceId,
       node_id: 0,
-      manufacturer: "nippy",
-      model: "RS-485 Gateway",
-      sw_version: "2.3.2",
-      hw_version: "1.0",
+      discovery: { manufacturer: "nippy", model: "RS-485 Gateway", sw_version: "2.3.2", hw_version: "1.0" },
       entities: [
-        { name: "Ambient temperature", id: "ambient_temperature", child_id: 1, entity_type: "temperature", read_only: true, entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer", availability_topic: "none" },
+        { name: "Ambient temperature", id: "ambient_temperature", child_id: 1, entity_type: "temperature", read_only: true, discovery: { entity_category: "diagnostic", device_class: "temperature", icon: "mdi:thermometer", availability_topic: "none" } },
       ]
     };
     try {
@@ -686,15 +659,15 @@ export class MsViewDevices extends LitElement {
           ${this._field("Gateway", d.gateway || "", (v: string) => d.gateway = v, { hint: "Leave empty for default gateway" })}
 
           <div class="dialog-section">Device Info</div>
-          ${this._field("Manufacturer", d.manufacturer, (v: string) => d.manufacturer = v)}
-          ${this._field("Model", d.model, (v: string) => d.model = v)}
-          ${this._field("SW Version", d.sw_version, (v: string) => d.sw_version = v)}
-          ${this._field("HW Version", d.hw_version, (v: string) => d.hw_version = v)}
+          ${this._field("Manufacturer", d.discovery?.manufacturer || "", (v: string) => d.discovery = { ...d.discovery, manufacturer: v })}
+          ${this._field("Model", d.discovery?.model || "", (v: string) => d.discovery = { ...d.discovery, model: v })}
+          ${this._field("SW Version", d.discovery?.sw_version || "", (v: string) => d.discovery = { ...d.discovery, sw_version: v })}
+          ${this._field("HW Version", d.discovery?.hw_version || "", (v: string) => d.discovery = { ...d.discovery, hw_version: v })}
 
           <div class="dialog-section">Optional</div>
-          ${this._field("Configuration URL", d.configuration_url || "", (v: string) => d.configuration_url = v)}
-          ${this._field("Suggested Area", d.suggested_area || "", (v: string) => d.suggested_area = v)}
-          ${this._field("Via Device", d.via_device || "", (v: string) => d.via_device = v, { hint: "Device ID of the parent device" })}
+          ${this._field("Configuration URL", d.discovery?.configuration_url || "", (v: string) => d.discovery = { ...d.discovery, configuration_url: v })}
+          ${this._field("Suggested Area", d.discovery?.suggested_area || "", (v: string) => d.discovery = { ...d.discovery, suggested_area: v })}
+          ${this._field("Via Device", d.discovery?.via_device || "", (v: string) => d.discovery = { ...d.discovery, via_device: v }, { hint: "Device ID of the parent device" })}
         </div>
         <ms-button slot="footer" variant="neutral" appearance="plain" @click=${() => this._showDeviceDialog = false}>Cancel</ms-button>
         <ms-button slot="footer" @click=${() => this._saveDevice(isNew)}>Save</ms-button>
@@ -741,14 +714,14 @@ export class MsViewDevices extends LitElement {
 
   // --- Entity dialog ---
   private _addEntity(deviceId: string) {
-    this._editingEntity = { name: "", id: "", child_id: 0, entity_type: "switch", icon: "", initial_value: "" };
+    this._editingEntity = { name: "", id: "", child_id: 0, entity_type: "switch", initial_value: "", discovery: {} };
     this._editingEntityDeviceId = deviceId;
     this._isNewEntity = true;
     this._showEntityDialog = true;
   }
 
   private _editEntity(deviceId: string, entity: any) {
-    this._editingEntity = { ...entity };
+    this._editingEntity = { ...entity, discovery: { ...(entity.discovery || {}) } };
     this._editingEntityDeviceId = deviceId;
     this._isNewEntity = false;
     this._showEntityDialog = true;
@@ -765,7 +738,7 @@ export class MsViewDevices extends LitElement {
           ${this._field("ID", e.id, (v: string) => e.id = v, { disabled: !isNew })}
           ${this._idField("Child ID", e.child_id, (v: any) => e.child_id = v)}
           ${this._selectField("Entity Type", e.entity_type, ENTITY_TYPES, (v: string) => e.entity_type = v)}
-          ${this._field("Icon", e.icon || "", (v: string) => e.icon = v, { hint: "e.g. mdi:lightbulb" })}
+          ${this._field("Icon", e.discovery?.icon || "", (v: string) => e.discovery = { ...e.discovery, icon: v }, { hint: "e.g. mdi:lightbulb" })}
 
           <div class="dialog-section">Optional Overrides</div>
           ${this._idField("Node ID", e.node_id, (v: any) => e.node_id = v, { hint: "Override device Node ID" })}
@@ -778,17 +751,17 @@ export class MsViewDevices extends LitElement {
           ${this._checkboxField("Write Only", e.write_only, (v: boolean) => e.write_only = v)}
 
           <div class="dialog-section">Number Entity Settings</div>
-          ${this._numField("Min Value", e.min_value, (v: any) => e.min_value = v)}
-          ${this._numField("Max Value", e.max_value, (v: any) => e.max_value = v)}
-          ${this._numField("Step", e.step, (v: any) => e.step = v)}
-          ${this._field("Unit", e.unit_of_measurement || "", (v: string) => e.unit_of_measurement = v)}
+          ${this._numField("Min Value", e.discovery?.min_value, (v: any) => e.discovery = { ...e.discovery, min_value: v })}
+          ${this._numField("Max Value", e.discovery?.max_value, (v: any) => e.discovery = { ...e.discovery, max_value: v })}
+          ${this._numField("Step", e.discovery?.step, (v: any) => e.discovery = { ...e.discovery, step: v })}
+          ${this._field("Unit", e.discovery?.unit_of_measurement || "", (v: string) => e.discovery = { ...e.discovery, unit_of_measurement: v })}
 
           <div class="dialog-section">Select Entity Settings</div>
-          ${this._field("Options (comma-separated)", (e.options || []).join(", "), (v: string) => e.options = v ? v.split(",").map((s: string) => s.trim()) : [])}
+          ${this._field("Options (comma-separated)", (e.discovery?.options || []).join(", "), (v: string) => e.discovery = { ...e.discovery, options: v ? v.split(",").map((s: string) => s.trim()) : [] })}
 
-          <div class="dialog-section">Home Assistant</div>
-          ${this._field("Device Class", e.device_class || "", (v: string) => e.device_class = v)}
-          ${this._selectField("Entity Category", e.entity_category || "", ["", "config", "diagnostic"], (v: string) => e.entity_category = v)}
+          <div class="dialog-section">Home Assistant Discovery</div>
+          ${this._field("Device Class", e.discovery?.device_class || "", (v: string) => e.discovery = { ...e.discovery, device_class: v })}
+          ${this._selectField("Entity Category", e.discovery?.entity_category || "", ["", "config", "diagnostic"], (v: string) => e.discovery = { ...e.discovery, entity_category: v })}
           ${this._field("Variable Type Override", e.variable_type || "", (v: string) => e.variable_type = v, { hint: "e.g. V_STATUS, V_TEXT" })}
 
           <div class="dialog-section">Sync</div>

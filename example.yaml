@@ -109,16 +109,17 @@ devices:
     id: "relay_controller_1"
     node_id: 9                            # MySensors node ID (numeric or alias)
     gateway: "main_house"                 # Gateway to use (optional, defaults to first gateway)
-    manufacturer: "ACME Electronics"      # Device manufacturer (required)
-    model: "Smart Controller Pro"         # Device model (required)
-    sw_version: "2.0.1"                   # Software version (required)
-    hw_version: "1.2"                     # Hardware version (required)
-    configuration_url: "http://192.168.1.100/config"  # Device config URL (optional, default: "")
-    suggested_area: "Basement"            # Suggested Home Assistant area (optional, default: "")
-    connections:                          # Device connections for Home Assistant (optional, default: [])
-      - ["mac", "AA:BB:CC:DD:EE:FF"]
-      - ["ip", "192.168.1.100"]
-    via_device: "gateway_device_id"       # Parent device ID (optional, default: "")
+    discovery:
+      manufacturer: "ACME Electronics"      # Device manufacturer (required)
+      model: "Smart Controller Pro"         # Device model (required)
+      sw_version: "2.0.1"                   # Software version (required)
+      hw_version: "1.2"                     # Hardware version (required)
+      configuration_url: "http://192.168.1.100/config"  # Device config URL (optional, default: "")
+      suggested_area: "Basement"            # Suggested Home Assistant area (optional, default: "")
+      connections:                          # Device connections for Home Assistant (optional, default: [])
+        - ["mac", "AA:BB:CC:DD:EE:FF"]
+        - ["ip", "192.168.1.100"]
+      via_device: "gateway_device_id"       # Parent device ID (optional, default: "")
 
     entities:
       # ENTITY IDENTIFICATION FIELDS:
@@ -159,7 +160,6 @@ devices:
         initial_value: "0"                 # Initial state (default: "0" for switch)
         read_only: false                   # Entity can receive commands (default: false for switch)
         write_only: false                  # Entity reports state (default: false)
-        optimistic: false                  # Wait for device confirmation (default: false)
 
         # ACK configuration
         request_ack: true                  # Require ACK with timeout/retry (default: true)
@@ -170,28 +170,30 @@ devices:
         sync_period: "30s"                 # Sync state every 30 seconds (default: 0, disabled)
         sync_splay: "5s"                   # Random delay (0-5s) before each sync (default: 0)
 
-        # Home Assistant integration
-        icon: "mdi:power"                  # Material Design icon (default: "")
-        device_class: "switch"             # Home Assistant device class (default: "")
-        entity_category: "config"          # Entity category: config, diagnostic, system (default: "")
-        enabled_by_default: true           # Enable by default in HA (default: true)
+        # Home Assistant discovery
+        discovery:
+          icon: "mdi:power"                  # Material Design icon (default: "")
+          device_class: "switch"             # Home Assistant device class (default: "")
+          entity_category: "config"          # Entity category: config, diagnostic, system (default: "")
+          enabled_by_default: true           # Enable by default in HA (default: true)
+          optimistic: false                  # Wait for device confirmation (default: false)
 
-        # MQTT configuration
-        availability_topic: "availability/relay1"     # Custom availability topic (default: auto-generated)
-        payload_available: "online"                   # Payload for available state (default: "online")
-        payload_not_available: "offline"              # Payload for unavailable state (default: "offline")
-        payload_on: "ON"                              # Payload for on state (default: "1")
-        payload_off: "OFF"                            # Payload for off state (default: "0")
-        state_on: "1"                                 # State value for on (default: "1")
-        state_off: "0"                                # State value for off (default: "0")
-        qos: 0                                        # MQTT QoS level (optional)
-        retain: false                                 # MQTT retain flag (optional)
+          # MQTT configuration
+          availability_topic: "availability/relay1"     # Custom availability topic (default: auto-generated)
+          payload_available: "online"                   # Payload for available state (default: "online")
+          payload_not_available: "offline"              # Payload for unavailable state (default: "offline")
+          payload_on: "ON"                              # Payload for on state (default: "1")
+          payload_off: "OFF"                            # Payload for off state (default: "0")
+          state_on: "1"                                 # State value for on (default: "1")
+          state_off: "0"                                # State value for off (default: "0")
+          qos: 0                                        # MQTT QoS level (optional)
+          retain: false                                 # MQTT retain flag (optional)
 
-        # MQTT template configuration (optional)
-        json_attributes_topic: "attributes/relay1"    # JSON attributes topic (default: "")
-        json_attributes_template: "{{ value_json }}"  # JSON attributes template (default: "")
-        state_value_template: "{{ value }}"           # State value template (default: "")
-        command_template: "{{ value }}"               # Command template (default: "")
+          # MQTT template configuration (optional)
+          json_attributes_topic: "attributes/relay1"    # JSON attributes topic (default: "")
+          json_attributes_template: "{{ value_json }}"  # JSON attributes template (default: "")
+          state_value_template: "{{ value }}"           # State value template (default: "")
+          command_template: "{{ value }}"               # Command template (default: "")
 
       # Fast response light (optimistic mode, no ACK for speed)
       - name: "Instant Response Light"
@@ -202,9 +204,10 @@ devices:
         entity_type: "light"
         initial_value: "0"                 # Default: "0" for light
         sync_period: "10s"                 # High-frequency sync for critical entity
-        icon: "mdi:lightbulb"
-        optimistic: true                   # Override: immediate response for fast UI
         request_ack: false                 # Override: fire-and-forget for speed
+        discovery:
+          icon: "mdi:lightbulb"
+          optimistic: true                   # Override: immediate response for fast UI
 
       # Security system (explicit non-optimistic, no sync)
       - name: "Security System"
@@ -213,11 +216,12 @@ devices:
         entity_type: "switch"
         initial_value: "0"
         # No sync_period = sync disabled
-        icon: "mdi:security"
-        optimistic: false                  # Explicit: must wait for device confirmation
         request_ack: true                  # Explicit: require ACK with timeout/retry
         ack_timeout: "250ms"               # Default value
         ack_retries: 3                     # Default value
+        discovery:
+          icon: "mdi:security"
+          optimistic: false                  # Explicit: must wait for device confirmation
 
       # Custom unique_id example
       - name: "Special Control"
@@ -227,16 +231,18 @@ devices:
         child_id: relay9_ch3               # Using alias (resolves to 8)
         entity_type: "switch"
         sync_period: "60s"                 # Low-frequency sync
-        icon: "mdi:toggle-switch"
+        discovery:
+          icon: "mdi:toggle-switch"
 
   # Nippy Relay 3 example using relay3_ch* aliases
   - name: "Relay 3 Control"
     id: "relay_3"
     node_id: 3                             # MySensors node ID for Relay 3 device
-    manufacturer: "Nippy"
-    model: "Relay 3"
-    sw_version: "1.0.0"
-    hw_version: "1.0.0"
+    discovery:
+      manufacturer: "Nippy"
+      model: "Relay 3"
+      sw_version: "1.0.0"
+      hw_version: "1.0.0"
 
     entities:
       - name: "Relay 3 Channel 0"
@@ -244,30 +250,34 @@ devices:
         child_id: relay3_ch0               # Using alias (resolves to 0)
         entity_type: "switch"
         initial_value: "0"
-        icon: "mdi:electric-switch"
+        discovery:
+          icon: "mdi:electric-switch"
 
       - name: "Relay 3 Channel 1"
         id: "ch1"
         child_id: relay3_ch1               # Using alias (resolves to 1)
         entity_type: "switch"
         initial_value: "0"
-        icon: "mdi:electric-switch"
+        discovery:
+          icon: "mdi:electric-switch"
 
       - name: "Relay 3 Channel 2"
         id: "ch2"
         child_id: relay3_ch2               # Using alias (resolves to 2)
         entity_type: "switch"
         initial_value: "0"
-        icon: "mdi:electric-switch"
+        discovery:
+          icon: "mdi:electric-switch"
 
   # Example input device (sensors/buttons)
   - name: "Multi-Sensor Panel"
     id: "sensor_panel_1"
     node_id: 2
-    manufacturer: "ACME Electronics"
-    model: "Sensor Panel Pro"
-    sw_version: "1.5"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "ACME Electronics"
+      model: "Sensor Panel Pro"
+      sw_version: "1.5"
+      hw_version: "1.0"
 
     entities:
       # Binary sensor entities (read-only)
@@ -276,23 +286,25 @@ devices:
         child_id: 0
         entity_type: "binary_sensor"
         read_only: true                    # Explicitly read-only (default: true for binary_sensor)
-        icon: "mdi:gesture-tap-button"
-        device_class: "button"
-        entity_category: "diagnostic"
+        discovery:
+          icon: "mdi:gesture-tap-button"
+          device_class: "button"
+          entity_category: "diagnostic"
 
-        # MQTT configuration for binary sensor
-        payload_on: "PRESSED"              # Default: "1"
-        payload_off: "RELEASED"            # Default: "0"
-        off_delay: 5                       # Auto-off delay in seconds (optional)
+          # MQTT configuration for binary sensor
+          payload_on: "PRESSED"              # Default: "1"
+          payload_off: "RELEASED"            # Default: "0"
+          off_delay: 5                       # Auto-off delay in seconds (optional)
 
       - name: "Motion Sensor"
         id: "motion_1"
         child_id: 1
         entity_type: "binary_sensor"
         read_only: true
-        icon: "mdi:motion-sensor"
-        device_class: "motion"
-        off_delay: 10                      # Auto-off after 10 seconds
+        discovery:
+          icon: "mdi:motion-sensor"
+          device_class: "motion"
+          off_delay: 10                      # Auto-off after 10 seconds
 
       # Numeric sensor entities
       - name: "Temperature"
@@ -300,42 +312,46 @@ devices:
         child_id: 2
         entity_type: "temperature"         # Maps to MySensors V_TEMP
         read_only: true                    # Entity is read-only (default: false, overridden here)
-        unit_of_measurement: "°C"          # Default unit for temperature
-        state_class: "measurement"         # Home Assistant state class (default for temperature)
-        icon: "mdi:thermometer"
-        device_class: "temperature"
-        expire_after: 300                  # Expire sensor after 5 minutes without updates (optional)
-        value_template: "{{ value | round(1) }}"  # Template to format temperature value (optional)
+        discovery:
+          unit_of_measurement: "°C"          # Default unit for temperature
+          state_class: "measurement"         # Home Assistant state class (default for temperature)
+          icon: "mdi:thermometer"
+          device_class: "temperature"
+          expire_after: 300                  # Expire sensor after 5 minutes without updates (optional)
+          value_template: "{{ value | round(1) }}"  # Template to format temperature value (optional)
 
       - name: "Humidity"
         id: "humidity"
         child_id: 3
         entity_type: "humidity"            # Maps to MySensors V_HUM
         read_only: true
-        unit_of_measurement: "%"           # Default unit for humidity
-        state_class: "measurement"         # Default for humidity
-        icon: "mdi:water-percent"
-        device_class: "humidity"
+        discovery:
+          unit_of_measurement: "%"           # Default unit for humidity
+          state_class: "measurement"         # Default for humidity
+          icon: "mdi:water-percent"
+          device_class: "humidity"
 
       - name: "Battery Level"
         id: "battery"
         child_id: 4
         entity_type: "battery"             # Maps to MySensors V_PERCENTAGE
         read_only: true
-        unit_of_measurement: "%"           # Default unit for battery
-        state_class: "measurement"         # Default for battery
-        entity_category: "diagnostic"
-        icon: "mdi:battery"
-        device_class: "battery"
+        discovery:
+          unit_of_measurement: "%"           # Default unit for battery
+          state_class: "measurement"         # Default for battery
+          entity_category: "diagnostic"
+          icon: "mdi:battery"
+          device_class: "battery"
 
   # Device with text, number, and select entities
   - name: "Smart Display Controller"
     id: "display_controller"
     node_id: 6
-    manufacturer: "ACME Electronics"
-    model: "Display Pro"
-    sw_version: "1.0"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "ACME Electronics"
+      model: "Display Pro"
+      sw_version: "1.0"
+      hw_version: "1.0"
 
     entities:
       # Text entity for sending messages
@@ -345,8 +361,9 @@ devices:
         entity_type: "text"                # Maps to MySensors V_TEXT
         initial_value: "Hello World"       # Default: "" for text
         sync_period: "45s"                 # Periodic sync of display text
-        icon: "mdi:message-text"
-        entity_category: "config"
+        discovery:
+          icon: "mdi:message-text"
+          entity_category: "config"
 
       # Number entity for brightness control
       - name: "Brightness Level"
@@ -355,11 +372,12 @@ devices:
         entity_type: "number"              # Maps to MySensors V_PERCENTAGE
         initial_value: "50"                # Default: "0" for number
         sync_period: "20s"                 # Frequent sync for display control
-        min_value: 0                       # Minimum value (optional)
-        max_value: 100                     # Maximum value (optional)
-        step: 5                            # Step size (optional)
-        unit_of_measurement: "%"           # Default: "" for number
-        icon: "mdi:brightness-6"
+        discovery:
+          min_value: 0                       # Minimum value (optional)
+          max_value: 100                     # Maximum value (optional)
+          step: 5                            # Step size (optional)
+          unit_of_measurement: "%"           # Default: "" for number
+          icon: "mdi:brightness-6"
 
       # Select entity for mode selection
       - name: "Display Mode"
@@ -368,8 +386,9 @@ devices:
         entity_type: "select"              # Maps to MySensors V_TEXT
         initial_value: "normal"            # Default: "" for select
         sync_period: "60s"
-        options: ["normal", "bright", "dim", "off"]  # Available options (required for select)
-        icon: "mdi:monitor"
+        discovery:
+          options: ["normal", "bright", "dim", "off"]  # Available options (required for select)
+          icon: "mdi:monitor"
 
       # Write-only entity example (command-only, never reports state)
       - name: "Beep Command"
@@ -378,18 +397,20 @@ devices:
         entity_type: "text"
         write_only: true                   # Entity only receives commands, never reports state (default: false)
         initial_value: ""
-        icon: "mdi:bell-ring"
-        entity_category: "config"
+        discovery:
+          icon: "mdi:bell-ring"
+          entity_category: "config"
 
   # Cover entity example (garage door)
   - name: "Garage Door Controller"
     id: "garage_controller"
     node_id: 50
     gateway: "main_house"
-    manufacturer: "ACME Electronics"
-    model: "Garage Pro"
-    sw_version: "1.0"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "ACME Electronics"
+      model: "Garage Pro"
+      sw_version: "1.0"
+      hw_version: "1.0"
 
     entities:
       - name: "Garage Door"
@@ -398,23 +419,25 @@ devices:
         entity_type: "cover"               # Cover entity type
         initial_value: "CLOSE"             # Default: "0" for cover
         sync_period: "30s"                 # Periodic sync for door status
-        icon: "mdi:garage"
-        device_class: "garage"
-        payload_open: "OPEN"               # Payload for open command (default: "OPEN")
-        payload_close: "CLOSE"             # Payload for close command (default: "CLOSE")
-        payload_stop: "STOP"               # Payload for stop command (default: "STOP")
-        state_open: "open"                 # State value for open (default: "open")
-        state_closed: "closed"             # State value for closed (default: "closed")
+        discovery:
+          icon: "mdi:garage"
+          device_class: "garage"
+          payload_open: "OPEN"               # Payload for open command (default: "OPEN")
+          payload_close: "CLOSE"             # Payload for close command (default: "CLOSE")
+          payload_stop: "STOP"               # Payload for stop command (default: "STOP")
+          state_open: "open"                 # State value for open (default: "open")
+          state_closed: "closed"             # State value for closed (default: "closed")
 
   # Device without node_id - all entities specify their own node_id
   - name: "Distributed Sensor Network"
     id: "distributed_sensors"
     # No node_id on device - entities use different MySensors nodes
     gateway: "main_house"
-    manufacturer: "ACME Electronics"
-    model: "Distributed Sensors"
-    sw_version: "1.0"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "ACME Electronics"
+      model: "Distributed Sensors"
+      sw_version: "1.0"
+      hw_version: "1.0"
 
     entities:
       # Each entity connects to a different MySensors node
@@ -424,7 +447,8 @@ devices:
         child_id: 0
         entity_type: "temperature"
         read_only: true
-        icon: "mdi:thermometer"
+        discovery:
+          icon: "mdi:thermometer"
 
       - name: "Kitchen Temperature"
         id: "kitchen_temp"
@@ -432,23 +456,26 @@ devices:
         child_id: 0
         entity_type: "temperature"
         read_only: true
-        icon: "mdi:thermometer"
+        discovery:
+          icon: "mdi:thermometer"
 
       - name: "Basement Switch"
         id: "basement_switch"
         node_id: 23                        # MySensors node 23
         child_id: 0
         entity_type: "switch"
-        icon: "mdi:light-switch"
+        discovery:
+          icon: "mdi:light-switch"
 
   # Advanced sensor hub with various sensor types
   - name: "Environmental Monitor"
     id: "env_monitor"
     node_id: 5
-    manufacturer: "ACME Electronics"
-    model: "Env Monitor Pro"
-    sw_version: "1.0"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "ACME Electronics"
+      model: "Env Monitor Pro"
+      sw_version: "1.0"
+      hw_version: "1.0"
 
     entities:
       # Power monitoring sensors
@@ -457,20 +484,22 @@ devices:
         child_id: 0
         entity_type: "watt"                # Maps to V_WATT
         read_only: true
-        icon: "mdi:flash"
-        device_class: "power"
-        unit_of_measurement: "W"           # Default for watt
-        state_class: "measurement"         # Default for watt
+        discovery:
+          icon: "mdi:flash"
+          device_class: "power"
+          unit_of_measurement: "W"           # Default for watt
+          state_class: "measurement"         # Default for watt
 
       - name: "Energy Total"
         id: "energy_kwh"
         child_id: 1
         entity_type: "kwh"                 # Maps to V_KWH
         read_only: true
-        icon: "mdi:lightning-bolt"
-        device_class: "energy"
-        unit_of_measurement: "kWh"         # Default for kwh
-        state_class: "total_increasing"    # Default for kwh
+        discovery:
+          icon: "mdi:lightning-bolt"
+          device_class: "energy"
+          unit_of_measurement: "kWh"         # Default for kwh
+          state_class: "total_increasing"    # Default for kwh
 
       # Environmental sensors
       - name: "Light Level"
@@ -478,20 +507,22 @@ devices:
         child_id: 2
         entity_type: "light_level"         # Maps to V_LIGHT_LEVEL
         read_only: true
-        icon: "mdi:brightness-6"
-        device_class: "illuminance"
-        unit_of_measurement: "lx"          # Default for light_level
-        state_class: "measurement"         # Default for light_level
+        discovery:
+          icon: "mdi:brightness-6"
+          device_class: "illuminance"
+          unit_of_measurement: "lx"          # Default for light_level
+          state_class: "measurement"         # Default for light_level
 
       - name: "Atmospheric Pressure"
         id: "pressure"
         child_id: 3
         entity_type: "pressure"            # Maps to V_PRESSURE
         read_only: true
-        unit_of_measurement: "hPa"         # Default for pressure
-        state_class: "measurement"         # Default for pressure
-        icon: "mdi:gauge"
-        device_class: "atmospheric_pressure"
+        discovery:
+          unit_of_measurement: "hPa"         # Default for pressure
+          state_class: "measurement"         # Default for pressure
+          icon: "mdi:gauge"
+          device_class: "atmospheric_pressure"
 
       # Custom sensor with variable type override
       - name: "Custom Measurement"
@@ -500,10 +531,11 @@ devices:
         entity_type: "sensor"              # Generic sensor
         variable_type: "V_CUSTOM"          # Override MySensors variable type (optional)
         read_only: true                    # Default: true for sensor
-        unit_of_measurement: "ppm"
-        state_class: "measurement"
-        icon: "mdi:chemical-weapon"
-        value_template: "{{ value | round(2) }}"
+        discovery:
+          unit_of_measurement: "ppm"
+          state_class: "measurement"
+          icon: "mdi:chemical-weapon"
+          value_template: "{{ value | round(2) }}"
 
       # Additional sensor types demonstration
       - name: "Voltage"
@@ -511,39 +543,43 @@ devices:
         child_id: 5
         entity_type: "voltage"             # Maps to V_VOLTAGE
         read_only: true
-        unit_of_measurement: "V"           # Default for voltage
-        state_class: "measurement"         # Default for voltage
-        device_class: "voltage"
-        icon: "mdi:flash-triangle"
+        discovery:
+          unit_of_measurement: "V"           # Default for voltage
+          state_class: "measurement"         # Default for voltage
+          device_class: "voltage"
+          icon: "mdi:flash-triangle"
 
       - name: "Current"
         id: "current"
         child_id: 6
         entity_type: "current"             # Maps to V_CURRENT
         read_only: true
-        unit_of_measurement: "A"           # Default for current
-        state_class: "measurement"         # Default for current
-        device_class: "current"
-        icon: "mdi:current-ac"
+        discovery:
+          unit_of_measurement: "A"           # Default for current
+          state_class: "measurement"         # Default for current
+          device_class: "current"
+          icon: "mdi:current-ac"
 
       - name: "Distance"
         id: "distance"
         child_id: 7
         entity_type: "distance"            # Maps to V_DISTANCE
         read_only: true
-        unit_of_measurement: "m"           # Default for distance
-        state_class: "measurement"         # Default for distance
-        device_class: "distance"
-        icon: "mdi:ruler"
+        discovery:
+          unit_of_measurement: "m"           # Default for distance
+          state_class: "measurement"         # Default for distance
+          device_class: "distance"
+          icon: "mdi:ruler"
 
   # Dimmer and RGB light examples
   - name: "Lighting Controller"
     id: "lighting_controller"
     node_id: 10
-    manufacturer: "ACME Electronics"
-    model: "Light Controller Pro"
-    sw_version: "1.0"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "ACME Electronics"
+      model: "Light Controller Pro"
+      sw_version: "1.0"
+      hw_version: "1.0"
 
     entities:
       - name: "Dimmable Light"
@@ -552,10 +588,11 @@ devices:
         entity_type: "dimmer"              # Maps to V_PERCENTAGE
         initial_value: "0"                 # Default: "0" for dimmer
         sync_period: "30s"
-        min_value: 0                       # Minimum brightness
-        max_value: 100                     # Maximum brightness
-        step: 1                            # Step size
-        icon: "mdi:lightbulb-on"
+        discovery:
+          min_value: 0                       # Minimum brightness
+          max_value: 100                     # Maximum brightness
+          step: 1                            # Step size
+          icon: "mdi:lightbulb-on"
 
       - name: "RGB Light Strip"
         id: "rgb_strip"
@@ -563,7 +600,8 @@ devices:
         entity_type: "rgb_light"           # Maps to V_RGB
         initial_value: "000000"            # Default: RGB hex value
         sync_period: "30s"
-        icon: "mdi:led-strip"
+        discovery:
+          icon: "mdi:led-strip"
 
       - name: "RGBW Light"
         id: "rgbw_light"
@@ -571,16 +609,18 @@ devices:
         entity_type: "rgbw_light"          # Maps to V_RGBW
         initial_value: "00000000"          # Default: RGBW hex value
         sync_period: "30s"
-        icon: "mdi:led-strip-variant"
+        discovery:
+          icon: "mdi:led-strip-variant"
 
   # Climate control example
   - name: "HVAC Controller"
     id: "hvac_controller"
     node_id: 15
-    manufacturer: "ACME Electronics"
-    model: "Climate Pro"
-    sw_version: "1.0"
-    hw_version: "1.0"
+    discovery:
+      manufacturer: "ACME Electronics"
+      model: "Climate Pro"
+      sw_version: "1.0"
+      hw_version: "1.0"
 
     entities:
       - name: "Thermostat"
@@ -589,11 +629,12 @@ devices:
         entity_type: "climate"             # Maps to V_HVAC_SETPOINT_HEAT
         initial_value: "20"                # Default temperature setpoint
         sync_period: "60s"
-        min_value: 5                       # Minimum temperature
-        max_value: 35                      # Maximum temperature
-        step: 0.5                          # Temperature step
-        unit_of_measurement: "°C"
-        icon: "mdi:thermostat"
+        discovery:
+          min_value: 5                       # Minimum temperature
+          max_value: 35                      # Maximum temperature
+          step: 0.5                          # Temperature step
+          unit_of_measurement: "°C"
+          icon: "mdi:thermostat"
 
 # Topic Structure:
 # - Entity commands: {topic_prefix}/entity/{unique_id}/set
@@ -676,21 +717,21 @@ devices:
 # - adapter.homeassistant_discovery: true
 # - entity.read_only: false (true for sensor, binary_sensor)
 # - entity.write_only: false
-# - entity.optimistic: false
 # - entity.request_ack: true
 # - entity.ack_timeout: "250ms"
 # - entity.ack_retries: 3
 # - entity.sync_period: 0 (disabled)
 # - entity.sync_splay: 0
-# - entity.enabled_by_default: true
-# - entity.payload_available: "online"
-# - entity.payload_not_available: "offline"
-# - entity.payload_on: "1"
-# - entity.payload_off: "0"
-# - entity.state_on: "1"
-# - entity.state_off: "0"
-# - entity.payload_open: "OPEN"
-# - entity.payload_close: "CLOSE"
-# - entity.payload_stop: "STOP"
-# - entity.state_open: "open"
-# - entity.state_closed: "closed"
+# - entity.discovery.optimistic: false
+# - entity.discovery.enabled_by_default: true
+# - entity.discovery.payload_available: "online"
+# - entity.discovery.payload_not_available: "offline"
+# - entity.discovery.payload_on: "1"
+# - entity.discovery.payload_off: "0"
+# - entity.discovery.state_on: "1"
+# - entity.discovery.state_off: "0"
+# - entity.discovery.payload_open: "OPEN"
+# - entity.discovery.payload_close: "CLOSE"
+# - entity.discovery.payload_stop: "STOP"
+# - entity.discovery.state_open: "open"
+# - entity.discovery.state_closed: "closed"
