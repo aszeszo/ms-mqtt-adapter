@@ -39,19 +39,18 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.11")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.12")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	app := &Application{
-		config:          cfg,
-		logger:          logger,
-		logBroadcast:    logBroadcast,
-		configPath:      *configFile,
-		ingressPort:     *ingressPort,
-		eventBus:        api.NewEventBus(),
-		entitySendLocks: make(map[string]*sync.Mutex),
+		config:       cfg,
+		logger:       logger,
+		logBroadcast: logBroadcast,
+		configPath:   *configFile,
+		ingressPort:  *ingressPort,
+		eventBus:     api.NewEventBus(),
 	}
 
 	if err := app.Run(ctx); err != nil {
@@ -96,12 +95,8 @@ type Application struct {
 	retryMu             sync.RWMutex
 
 	// ACK tracking for entities with request_ack enabled
-	pendingAcks   map[string]*PendingAck  // compositeKey -> pending ACK
+	pendingAcks   map[string]*PendingAck  // pendingKey (compositeKey_timestamp) -> pending ACK
 	pendingAcksMu sync.Mutex
-
-	// Per-entity send serialization (prevents concurrent sends to same entity)
-	entitySendLocks   map[string]*sync.Mutex
-	entitySendLocksMu sync.Mutex
 }
 
 // --- StatusProvider interface implementation ---
@@ -829,32 +824,13 @@ func (app *Application) handleMQTTStateChanges() {
 
 // sendWithAck sends a MySensors SET message and waits for ACK with timeout/retry logic
 func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTransport transport.Transport, nodeID, childID int, varType mysensors.VariableType, payload string, entity *config.Entity) {
-	// Serialize sends per entity to prevent concurrent sends to the same device.
-	// Get or create a mutex for this entity.
-	app.entitySendLocksMu.Lock()
-	entityLock, exists := app.entitySendLocks[compositeKey]
-	if !exists {
-		entityLock = &sync.Mutex{}
-		app.entitySendLocks[compositeKey] = entityLock
-	}
-	app.entitySendLocksMu.Unlock()
-
 	ackTimeout := app.config.GetEffectiveAckTimeout(entity)
 	ackRetries := app.config.GetEffectiveAckRetries(entity)
 
-	// Lock for this specific entity to serialize the send decision.
-	// The lock will be released after queuing the send, before ACK wait.
-	entityLock.Lock()
+	// Create a unique pending ACK tracker for this specific request
+	// We use a timestamp-based key to allow multiple concurrent requests to the same entity
+	pendingKey := fmt.Sprintf("%s_%d", compositeKey, time.Now().UnixNano())
 
-	// Cancel any existing pending ACK for this entity (new request restarts the process)
-	app.pendingAcksMu.Lock()
-	if existingAck, exists := app.pendingAcks[compositeKey]; exists {
-		close(existingAck.CancelChan)
-		delete(app.pendingAcks, compositeKey)
-		app.logger.Debug("Cancelled existing pending ACK for entity", "key", compositeKey)
-	}
-
-	// Create new pending ACK
 	pending := &PendingAck{
 		NodeID:     nodeID,
 		ChildID:    childID,
@@ -863,15 +839,15 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 		AckChan:    make(chan bool, 1),
 		CancelChan: make(chan struct{}),
 	}
-	app.pendingAcks[compositeKey] = pending
+
+	app.pendingAcksMu.Lock()
+	app.pendingAcks[pendingKey] = pending
 	app.pendingAcksMu.Unlock()
 
 	// Clean up when done
 	defer func() {
 		app.pendingAcksMu.Lock()
-		if current, exists := app.pendingAcks[compositeKey]; exists && current == pending {
-			delete(app.pendingAcks, compositeKey)
-		}
+		delete(app.pendingAcks, pendingKey)
 		app.pendingAcksMu.Unlock()
 	}()
 
@@ -886,7 +862,6 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 		}
 
 		if err := gatewayTransport.Send(message); err != nil {
-			entityLock.Unlock() // Release lock on error
 			app.logger.Error("Failed to send entity command to MySensors", "gateway", gatewayName, "error", err, "node_id", nodeID, "child_id", childID)
 			return
 		}
@@ -894,12 +869,6 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 		// Broadcast to TCP clients
 		if tcpServer, exists := app.tcpServers[gatewayName]; exists {
 			tcpServer.BroadcastMessage(message)
-		}
-
-		// Release the entity lock after the first send is queued.
-		// This allows new requests to cancel this ACK wait and send their own command.
-		if attempt == 0 {
-			entityLock.Unlock()
 		}
 
 		// Wait for ACK, timeout, or cancellation
