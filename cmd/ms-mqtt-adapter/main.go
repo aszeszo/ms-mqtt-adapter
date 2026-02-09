@@ -39,7 +39,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.7")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.8")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -1234,6 +1234,11 @@ func (app *Application) reloadConfig(configFile string) error {
 	// Update application config
 	app.config = newConfig
 
+	// Re-register MQTT command handlers BEFORE reconfiguring MQTT client
+	// This prevents a race condition where /set messages arrive after subscription
+	// but before handler registration (messages would be silently dropped)
+	app.handleMQTTStateChanges()
+
 	// Reconfigure MQTT client
 	if err := app.mqttClient.Reconfigure(&newConfig.MQTT, &newConfig.AdapterTopics, newConfig.Devices); err != nil {
 		return fmt.Errorf("failed to reconfigure MQTT client: %w", err)
@@ -1499,9 +1504,6 @@ func (app *Application) reloadConfig(configFile string) error {
 		app.logger.Error("Failed to reconfigure sync manager", "error", err)
 		return fmt.Errorf("failed to reconfigure sync manager: %w", err)
 	}
-
-	// Re-register MQTT command handlers for all devices (including newly added ones)
-	app.handleMQTTStateChanges()
 
 	// Republish Home Assistant discovery topics (only if MQTT is connected)
 	if app.mqttClient.IsConnected() {

@@ -105,7 +105,8 @@ func (c *Client) subscribeToDevices() error {
 			topic := fmt.Sprintf("%s/entity/%s/set", c.adapterCfg.TopicPrefix, uniqueID)
 			// Create composite key for uniqueness across devices (for internal state tracking)
 			compositeKey := fmt.Sprintf("%s_%s_entity", device.ID, entity.ID)
-			token := c.client.Subscribe(topic, 0, c.createEntityHandler(device.Name, entity.Name, compositeKey, device.ID, entity.ID, entity.EntityType))
+			// QoS 1 for at-least-once delivery (prevents message loss during network issues)
+		token := c.client.Subscribe(topic, 1, c.createEntityHandler(device.Name, entity.Name, compositeKey, device.ID, entity.ID, entity.EntityType))
 			if !token.WaitTimeout(5 * time.Second) {
 				return fmt.Errorf("subscription timeout for topic %s", topic)
 			}
@@ -226,6 +227,9 @@ func (c *Client) createEntityHandler(deviceName, entityName, compositeKey, devic
 		// Always notify the handler to send MySensors command
 		if handler, exists := c.handlers[compositeKey]; exists {
 			handler(deviceName, entityName, payload)
+		} else {
+			c.logger.Warn("MQTT command received but no handler registered (possible race condition during config reload)",
+				"device", deviceName, "entity", entityName, "compositeKey", compositeKey, "topic", msg.Topic())
 		}
 	}
 }
