@@ -1138,15 +1138,10 @@ func SetDefaults(config *Config) {
 				}
 			}
 
-			// Default optimistic mode based on entity type
-			// Switches, lights, covers: optimistic true (immediate UI feedback)
-			// Sensors: optimistic false (wait for actual readings)
+			// Default optimistic mode to false for all entities
+			// This ensures MQTT state only updates after device confirmation
 			if d.Optimistic == nil {
 				optimistic := false
-				if entity.CanReceiveCommands() {
-					// Command-able entities default to optimistic for better UX
-					optimistic = true
-				}
 				d.Optimistic = &optimistic
 			}
 

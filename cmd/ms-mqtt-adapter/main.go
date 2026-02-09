@@ -39,7 +39,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.10")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.11")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -839,12 +839,12 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 	}
 	app.entitySendLocksMu.Unlock()
 
-	// Lock for this specific entity - rapid toggles will serialize here
-	entityLock.Lock()
-	defer entityLock.Unlock()
-
 	ackTimeout := app.config.GetEffectiveAckTimeout(entity)
 	ackRetries := app.config.GetEffectiveAckRetries(entity)
+
+	// Lock for this specific entity to serialize the send decision.
+	// The lock will be released after queuing the send, before ACK wait.
+	entityLock.Lock()
 
 	// Cancel any existing pending ACK for this entity (new request restarts the process)
 	app.pendingAcksMu.Lock()
@@ -886,6 +886,7 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 		}
 
 		if err := gatewayTransport.Send(message); err != nil {
+			entityLock.Unlock() // Release lock on error
 			app.logger.Error("Failed to send entity command to MySensors", "gateway", gatewayName, "error", err, "node_id", nodeID, "child_id", childID)
 			return
 		}
@@ -893,6 +894,12 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 		// Broadcast to TCP clients
 		if tcpServer, exists := app.tcpServers[gatewayName]; exists {
 			tcpServer.BroadcastMessage(message)
+		}
+
+		// Release the entity lock after the first send is queued.
+		// This allows new requests to cancel this ACK wait and send their own command.
+		if attempt == 0 {
+			entityLock.Unlock()
 		}
 
 		// Wait for ACK, timeout, or cancellation
