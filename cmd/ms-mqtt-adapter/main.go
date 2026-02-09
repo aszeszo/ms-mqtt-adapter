@@ -39,18 +39,19 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.12")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.13")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	app := &Application{
-		config:       cfg,
-		logger:       logger,
-		logBroadcast: logBroadcast,
-		configPath:   *configFile,
-		ingressPort:  *ingressPort,
-		eventBus:     api.NewEventBus(),
+		config:           cfg,
+		logger:           logger,
+		logBroadcast:     logBroadcast,
+		configPath:       *configFile,
+		ingressPort:      *ingressPort,
+		eventBus:         api.NewEventBus(),
+		entityGeneration: make(map[string]uint64),
 	}
 
 	if err := app.Run(ctx); err != nil {
@@ -63,12 +64,11 @@ func main() {
 
 // PendingAck tracks a pending ACK request for a MySensors message
 type PendingAck struct {
-	NodeID    int
-	ChildID   int
-	VarType   mysensors.VariableType
-	Payload   string
-	AckChan   chan bool        // Signals when ACK received
-	CancelChan chan struct{}   // Signals cancellation (new request arrived)
+	NodeID  int
+	ChildID int
+	VarType mysensors.VariableType
+	Payload string
+	AckChan chan bool // Signals when ACK received
 }
 
 type Application struct {
@@ -97,6 +97,10 @@ type Application struct {
 	// ACK tracking for entities with request_ack enabled
 	pendingAcks   map[string]*PendingAck  // pendingKey (compositeKey_timestamp) -> pending ACK
 	pendingAcksMu sync.Mutex
+
+	// Per-entity generation counter - incremented on each new command, used to stop retries
+	entityGeneration   map[string]uint64
+	entityGenerationMu sync.Mutex
 }
 
 // --- StatusProvider interface implementation ---
@@ -827,17 +831,21 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 	ackTimeout := app.config.GetEffectiveAckTimeout(entity)
 	ackRetries := app.config.GetEffectiveAckRetries(entity)
 
+	// Increment generation counter for this entity - stops retries from older commands
+	app.entityGenerationMu.Lock()
+	app.entityGeneration[compositeKey]++
+	myGeneration := app.entityGeneration[compositeKey]
+	app.entityGenerationMu.Unlock()
+
 	// Create a unique pending ACK tracker for this specific request
-	// We use a timestamp-based key to allow multiple concurrent requests to the same entity
 	pendingKey := fmt.Sprintf("%s_%d", compositeKey, time.Now().UnixNano())
 
 	pending := &PendingAck{
-		NodeID:     nodeID,
-		ChildID:    childID,
-		VarType:    varType,
-		Payload:    payload,
-		AckChan:    make(chan bool, 1),
-		CancelChan: make(chan struct{}),
+		NodeID:  nodeID,
+		ChildID: childID,
+		VarType: varType,
+		Payload: payload,
+		AckChan: make(chan bool, 1),
 	}
 
 	app.pendingAcksMu.Lock()
@@ -851,8 +859,21 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 		app.pendingAcksMu.Unlock()
 	}()
 
-	// Retry loop
+	// Send the first attempt unconditionally
 	for attempt := 0; attempt <= ackRetries; attempt++ {
+		// Before retrying, check if a newer command has been issued for this entity
+		if attempt > 0 {
+			app.entityGenerationMu.Lock()
+			currentGen := app.entityGeneration[compositeKey]
+			app.entityGenerationMu.Unlock()
+			if currentGen != myGeneration {
+				app.logger.Debug("Skipping retry - newer command exists for entity",
+					"gateway", gatewayName, "node_id", nodeID, "child_id", childID,
+					"payload", payload, "my_gen", myGeneration, "current_gen", currentGen)
+				return
+			}
+		}
+
 		message := mysensors.NewSetMessageWithAck(nodeID, childID, varType, payload, true)
 
 		if attempt == 0 {
@@ -871,20 +892,16 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 			tcpServer.BroadcastMessage(message)
 		}
 
-		// Wait for ACK, timeout, or cancellation
+		// Wait for ACK or timeout
 		select {
 		case <-pending.AckChan:
 			app.logger.Info("ACK received for entity command", "gateway", gatewayName, "node_id", nodeID, "child_id", childID, "attempts", attempt+1)
-			return
-		case <-pending.CancelChan:
-			app.logger.Debug("ACK wait cancelled (new request arrived)", "gateway", gatewayName, "node_id", nodeID, "child_id", childID)
 			return
 		case <-time.After(ackTimeout):
 			if attempt < ackRetries {
 				app.logger.Debug("ACK timeout, will retry", "gateway", gatewayName, "node_id", nodeID, "child_id", childID, "attempt", attempt+1)
 			}
 		case <-app.ctx.Done():
-			app.logger.Debug("ACK wait cancelled (context done)", "gateway", gatewayName, "node_id", nodeID, "child_id", childID)
 			return
 		}
 	}
@@ -901,19 +918,19 @@ func (app *Application) checkForAckResponse(message *mysensors.Message) {
 	app.pendingAcksMu.Lock()
 	defer app.pendingAcksMu.Unlock()
 
-	// Check all pending ACKs to see if this message matches
+	// Signal ALL matching pending ACKs (there may be multiple concurrent requests for the same entity)
 	for key, pending := range app.pendingAcks {
 		if pending.NodeID == message.NodeID &&
 			pending.ChildID == message.ChildID &&
-			pending.VarType == message.GetVariableType() {
+			pending.VarType == message.GetVariableType() &&
+			pending.Payload == message.Payload {
 			// ACK received - signal the waiting goroutine
 			select {
 			case pending.AckChan <- true:
-				app.logger.Debug("ACK matched for pending request", "key", key, "node_id", message.NodeID, "child_id", message.ChildID)
+				app.logger.Debug("ACK matched for pending request", "key", key, "node_id", message.NodeID, "child_id", message.ChildID, "payload", message.Payload)
 			default:
 				// Channel full or already signaled
 			}
-			return
 		}
 	}
 }
