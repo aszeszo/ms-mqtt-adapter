@@ -49,7 +49,8 @@ jobs:
       packages: write
     strategy:
       matrix:
-        arch: [amd64, aarch64, armhf, armv7, i386]
+        # arch: [amd64, aarch64, armhf, armv7, i386]
+        arch: [amd64]
 
     steps:
       - name: Checkout repository
@@ -129,10 +130,10 @@ jobs:
         run: |
           case ${{ matrix.arch }} in
             amd64) echo "platform=linux/amd64" >> $GITHUB_OUTPUT ;;
-            aarch64) echo "platform=linux/arm64" >> $GITHUB_OUTPUT ;;
-            armv7) echo "platform=linux/arm/v7" >> $GITHUB_OUTPUT ;;
-            armhf) echo "platform=linux/arm/v6" >> $GITHUB_OUTPUT ;;
-            i386) echo "platform=linux/386" >> $GITHUB_OUTPUT ;;
+            # aarch64) echo "platform=linux/arm64" >> $GITHUB_OUTPUT ;;
+            # armv7) echo "platform=linux/arm/v7" >> $GITHUB_OUTPUT ;;
+            # armhf) echo "platform=linux/arm/v6" >> $GITHUB_OUTPUT ;;
+            # i386) echo "platform=linux/386" >> $GITHUB_OUTPUT ;;
           esac
 
       - name: Debug - Verify web/dist before Docker build
@@ -197,19 +198,19 @@ jobs:
       - name: Create and push manifest for version tag
         run: |
           docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-amd64 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-aarch64 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armhf \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armv7 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-i386
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-amd64
+            # ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-aarch64
+            # ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armhf
+            # ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-armv7
+            # ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}-i386
           docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
 
       - name: Create and push manifest for latest tag
         run: |
           docker manifest create ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-amd64 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-aarch64 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armhf \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armv7 \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-i386
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-amd64
+            # ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-aarch64
+            # ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armhf
+            # ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-armv7
+            # ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-i386
           docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
