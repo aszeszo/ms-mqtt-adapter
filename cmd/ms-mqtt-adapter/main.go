@@ -39,18 +39,19 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.9")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.10")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
 	app := &Application{
-		config:       cfg,
-		logger:       logger,
-		logBroadcast: logBroadcast,
-		configPath:   *configFile,
-		ingressPort:  *ingressPort,
-		eventBus:     api.NewEventBus(),
+		config:          cfg,
+		logger:          logger,
+		logBroadcast:    logBroadcast,
+		configPath:      *configFile,
+		ingressPort:     *ingressPort,
+		eventBus:        api.NewEventBus(),
+		entitySendLocks: make(map[string]*sync.Mutex),
 	}
 
 	if err := app.Run(ctx); err != nil {
@@ -97,6 +98,10 @@ type Application struct {
 	// ACK tracking for entities with request_ack enabled
 	pendingAcks   map[string]*PendingAck  // compositeKey -> pending ACK
 	pendingAcksMu sync.Mutex
+
+	// Per-entity send serialization (prevents concurrent sends to same entity)
+	entitySendLocks   map[string]*sync.Mutex
+	entitySendLocksMu sync.Mutex
 }
 
 // --- StatusProvider interface implementation ---
@@ -824,6 +829,20 @@ func (app *Application) handleMQTTStateChanges() {
 
 // sendWithAck sends a MySensors SET message and waits for ACK with timeout/retry logic
 func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTransport transport.Transport, nodeID, childID int, varType mysensors.VariableType, payload string, entity *config.Entity) {
+	// Serialize sends per entity to prevent concurrent sends to the same device.
+	// Get or create a mutex for this entity.
+	app.entitySendLocksMu.Lock()
+	entityLock, exists := app.entitySendLocks[compositeKey]
+	if !exists {
+		entityLock = &sync.Mutex{}
+		app.entitySendLocks[compositeKey] = entityLock
+	}
+	app.entitySendLocksMu.Unlock()
+
+	// Lock for this specific entity - rapid toggles will serialize here
+	entityLock.Lock()
+	defer entityLock.Unlock()
+
 	ackTimeout := app.config.GetEffectiveAckTimeout(entity)
 	ackRetries := app.config.GetEffectiveAckRetries(entity)
 
