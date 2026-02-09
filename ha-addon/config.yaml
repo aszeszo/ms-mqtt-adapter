@@ -1,5 +1,5 @@
 name: MySensors MQTT Adapter
-version: "3.0.13"
+version: "3.0.14"
 slug: ms_mqtt_adapter
 description: Bridge between MySensors networks and MQTT with Home Assistant auto-discovery
 url: https://github.com/aszeszo/ms-mqtt-adapter

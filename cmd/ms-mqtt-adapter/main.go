@@ -39,7 +39,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.13")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.14")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -815,7 +815,8 @@ func (app *Application) handleMQTTStateChanges() {
 						app.logger.Info("MySensors entity command sent successfully", "gateway", gatewayName, "device", deviceName, "entity", componentName,
 							"node_id", nodeID, "child_id", childID, "state", state, "message", message.String())
 
-						// Also broadcast the sent message to TCP clients
+						// Publish to traffic monitor and TCP clients
+						app.publishMySensorsTraffic(gatewayName, "tx", message)
 						if tcpServer, exists := app.tcpServers[gatewayName]; exists {
 							tcpServer.BroadcastMessage(message)
 						}
@@ -887,7 +888,8 @@ func (app *Application) sendWithAck(compositeKey, gatewayName string, gatewayTra
 			return
 		}
 
-		// Broadcast to TCP clients
+		// Publish to traffic monitor and TCP clients
+		app.publishMySensorsTraffic(gatewayName, "tx", message)
 		if tcpServer, exists := app.tcpServers[gatewayName]; exists {
 			tcpServer.BroadcastMessage(message)
 		}

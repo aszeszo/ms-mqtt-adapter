@@ -45,12 +45,7 @@ func NewClient(cfg *config.MQTTConfig, adapterCfg *config.AdapterConfig, devices
 	opts.SetReconnectingHandler(func(client mqtt.Client, opts *mqtt.ClientOptions) {
 		logger.Info("MQTT reconnecting...")
 	})
-	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		logger.Info("MQTT connected")
-	})
-
-	return &Client{
-		client:     mqtt.NewClient(opts),
+	c := &Client{
 		config:     cfg,
 		adapterCfg: adapterCfg,
 		logger:     logger,
@@ -58,6 +53,21 @@ func NewClient(cfg *config.MQTTConfig, adapterCfg *config.AdapterConfig, devices
 		states:     make(map[string]string),
 		handlers:   make(map[string]StateChangeHandler),
 	}
+
+	// Resubscribe on every connect (including reconnects after connection loss).
+	// With CleanSession=true (default), the broker removes all subscriptions on disconnect.
+	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		logger.Info("MQTT connected, resubscribing to topics...")
+		if err := c.subscribeToDevices(); err != nil {
+			logger.Error("Failed to resubscribe to device topics on reconnect", "error", err)
+		}
+		if err := c.subscribeToStateTopic(); err != nil {
+			logger.Error("Failed to resubscribe to state topics on reconnect", "error", err)
+		}
+	})
+
+	c.client = mqtt.NewClient(opts)
+	return c
 }
 
 func (c *Client) Connect(ctx context.Context) error {
@@ -69,16 +79,8 @@ func (c *Client) Connect(ctx context.Context) error {
 		return fmt.Errorf("MQTT connection failed: %w", token.Error())
 	}
 
-	if err := c.subscribeToDevices(); err != nil {
-		return fmt.Errorf("failed to subscribe to device topics: %w", err)
-	}
-
-	// Subscribe to state topics to capture retained messages
-	if err := c.subscribeToStateTopic(); err != nil {
-		return fmt.Errorf("failed to subscribe to state topics: %w", err)
-	}
-
-	c.logger.Info("MQTT client connected and subscribed to device topics")
+	// Subscriptions are handled by the OnConnectHandler (called on every connect/reconnect)
+	c.logger.Info("MQTT client connected")
 	return nil
 }
 
