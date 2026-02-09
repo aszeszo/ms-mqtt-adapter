@@ -39,7 +39,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.6")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.7")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()

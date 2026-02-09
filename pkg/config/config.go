@@ -485,7 +485,8 @@ func (config *Config) GetEffectiveAckTimeout(entity *Entity) time.Duration {
 	if entity.AckTimeout != nil {
 		return *entity.AckTimeout
 	}
-	return 250 * time.Millisecond // Default: 250ms
+	// Default: 1s to account for half-duplex bus delays, arbiter queuing, and device processing
+	return 1000 * time.Millisecond
 }
 
 // GetEffectiveAckRetries returns the effective ACK retry count for an entity
@@ -1137,9 +1138,15 @@ func SetDefaults(config *Config) {
 				}
 			}
 
-			// Default optimistic mode to false (wait for device confirmation)
+			// Default optimistic mode based on entity type
+			// Switches, lights, covers: optimistic true (immediate UI feedback)
+			// Sensors: optimistic false (wait for actual readings)
 			if d.Optimistic == nil {
 				optimistic := false
+				if entity.CanReceiveCommands() {
+					// Command-able entities default to optimistic for better UX
+					optimistic = true
+				}
 				d.Optimistic = &optimistic
 			}
 

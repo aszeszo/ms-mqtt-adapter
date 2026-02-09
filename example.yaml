@@ -167,7 +167,7 @@ devices:
 
         # ACK configuration
         request_ack: true                  # Require ACK with timeout/retry (default: true)
-        ack_timeout: "250ms"               # Time to wait for ACK response (default: 250ms)
+        ack_timeout: "1s"                  # Time to wait for ACK response (default: 1s, increased for RS485 reliability)
         ack_retries: 3                     # Number of retries on timeout (default: 3)
 
         # Sync configuration
@@ -181,7 +181,7 @@ devices:
           device_class: "switch"             # Home Assistant device class (default: "")
           entity_category: "config"          # Entity category: config, diagnostic, system (default: "")
           enabled_by_default: true           # Enable by default in HA (default: true)
-          optimistic: false                  # Wait for device confirmation (default: false)
+          optimistic: false                  # Wait for device confirmation (default: true for switches/lights, false for sensors)
 
           # MQTT configuration
           availability_topic: "availability/relay1"     # Custom availability topic (default: auto-generated)
@@ -222,7 +222,7 @@ devices:
         initial_value: "0"
         # No sync_period = sync disabled
         request_ack: true                  # Explicit: require ACK with timeout/retry
-        ack_timeout: "250ms"               # Default value
+        ack_timeout: "1s"                  # Default value (increased for reliability)
         ack_retries: 3                     # Default value
         discovery:
           icon: "mdi:security"
@@ -724,11 +724,11 @@ devices:
 # - entity.read_only: false (true for sensor, binary_sensor)
 # - entity.write_only: false
 # - entity.request_ack: true
-# - entity.ack_timeout: "250ms"
+# - entity.ack_timeout: "1s"
 # - entity.ack_retries: 3
 # - entity.sync_period: 0 (disabled)
 # - entity.sync_splay: auto (10% of sync_period, max 30s)
-# - entity.discovery.optimistic: false
+# - entity.discovery.optimistic: true (for switches/lights/covers), false (for sensors)
 # - entity.discovery.enabled_by_default: true
 # - entity.discovery.payload_available: "online"
 # - entity.discovery.payload_not_available: "offline"
