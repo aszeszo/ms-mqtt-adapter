@@ -224,11 +224,14 @@ func (c *Client) createEntityHandler(deviceName, entityName, compositeKey, devic
 			c.logger.Debug("Non-optimistic mode: waiting for device confirmation", "device", deviceName, "entity", entityName, "command", payload)
 		}
 
-		// Always notify the handler to send MySensors command
+		// Notify the handler to send MySensors command in a goroutine.
+		// This is critical: sendWithAck() blocks for up to ackTimeout * retries,
+		// which would block paho's single message router goroutine and prevent
+		// delivery of all subsequent MQTT messages until the ACK completes.
 		if handler, exists := c.handlers[compositeKey]; exists {
-			handler(deviceName, entityName, payload)
+			go handler(deviceName, entityName, payload)
 		} else {
-			c.logger.Warn("MQTT command received but no handler registered (possible race condition during config reload)",
+			c.logger.Warn("MQTT command received but no handler registered",
 				"device", deviceName, "entity", entityName, "compositeKey", compositeKey, "topic", msg.Topic())
 		}
 	}
