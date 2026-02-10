@@ -5,6 +5,7 @@ import (
 	"ms-mqtt-adapter/internal/mysensors"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -454,13 +455,22 @@ func ValidateConfig(config *Config) error {
 
 // GetDefaultGatewayName returns the first gateway name in the configuration as the default
 func (config *Config) GetDefaultGatewayName() string {
-	// Use the first gateway in the map (Go maps have deterministic iteration order in Go 1.0+)
-	for gatewayName := range config.MySensors {
-		return gatewayName
+	if len(config.MySensors) == 0 {
+		return ""
 	}
 
-	// This should never happen if config validation passed
-	return ""
+	// Prefer an explicitly named default gateway when present.
+	if _, exists := config.MySensors["default"]; exists {
+		return "default"
+	}
+
+	// Ensure deterministic fallback ordering for maps.
+	names := make([]string, 0, len(config.MySensors))
+	for gatewayName := range config.MySensors {
+		names = append(names, gatewayName)
+	}
+	sort.Strings(names)
+	return names[0]
 }
 
 // GetEffectiveGateway returns the gateway name to use for a device/entity

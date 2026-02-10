@@ -1257,14 +1257,15 @@ func (app *Application) reloadConfig(configFile string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load new config: %w", err)
 	}
+	oldConfig := app.config
 
 	// Check if config was previously incomplete
-	oldConfigIncomplete := len(app.config.MySensors) == 0 || app.config.MQTT.Broker == ""
+	oldConfigIncomplete := len(oldConfig.MySensors) == 0 || oldConfig.MQTT.Broker == ""
 	newConfigComplete := len(newConfig.MySensors) > 0 && newConfig.MQTT.Broker != ""
 
 	// Update log level if changed
-	if app.config.LogLevel != newConfig.LogLevel {
-		app.logger.Info("Updating log level", "old", app.config.LogLevel, "new", newConfig.LogLevel)
+	if oldConfig.LogLevel != newConfig.LogLevel {
+		app.logger.Info("Updating log level", "old", oldConfig.LogLevel, "new", newConfig.LogLevel)
 		app.logBroadcast.SetLogLevel(newConfig.LogLevel)
 	}
 
@@ -1437,7 +1438,7 @@ func (app *Application) reloadConfig(configFile string) error {
 	}
 
 	// Remove transports for deleted gateways
-	for gatewayName := range app.config.MySensors {
+	for gatewayName := range oldConfig.MySensors {
 		if _, exists := newConfig.MySensors[gatewayName]; !exists {
 			if transport, exists := app.transports[gatewayName]; exists {
 				transport.Disconnect()
@@ -1480,7 +1481,7 @@ func (app *Application) reloadConfig(configFile string) error {
 	}
 
 	// Remove TCP servers for deleted gateways
-	for gatewayName := range app.config.MySensors {
+	for gatewayName := range oldConfig.MySensors {
 		if _, exists := newConfig.MySensors[gatewayName]; !exists {
 			if tcpServer, exists := app.tcpServers[gatewayName]; exists {
 				tcpServer.Stop()
@@ -1526,7 +1527,7 @@ func (app *Application) reloadConfig(configFile string) error {
 	}
 
 	// Remove gateways for deleted gateways
-	for gatewayName := range app.config.MySensors {
+	for gatewayName := range oldConfig.MySensors {
 		if _, exists := newConfig.MySensors[gatewayName]; !exists {
 			if _, exists := app.gateways[gatewayName]; exists {
 				// Remove gateway
