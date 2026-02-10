@@ -106,94 +106,94 @@ type Device struct {
 
 // Entity represents a unified MySensors entity that can be an input (sensor), output (actuator), or both
 type Entity struct {
-	Name               string  `yaml:"name" json:"name"`
-	ID                 string  `yaml:"id" json:"id"`
-	UniqueID           string  `yaml:"unique_id,omitempty" json:"unique_id,omitempty"`
-	DefaultEntityID    *string `yaml:"default_entity_id,omitempty" json:"default_entity_id,omitempty"`
-	ChildID            any     `yaml:"child_id" json:"child_id"`
-	NodeID             any     `yaml:"node_id,omitempty" json:"node_id,omitempty"`
-	Gateway            string  `yaml:"gateway,omitempty" json:"gateway,omitempty"`
+	Name            string  `yaml:"name" json:"name"`
+	ID              string  `yaml:"id" json:"id"`
+	UniqueID        string  `yaml:"unique_id,omitempty" json:"unique_id,omitempty"`
+	DefaultEntityID *string `yaml:"default_entity_id,omitempty" json:"default_entity_id,omitempty"`
+	ChildID         any     `yaml:"child_id" json:"child_id"`
+	NodeID          any     `yaml:"node_id,omitempty" json:"node_id,omitempty"`
+	Gateway         string  `yaml:"gateway,omitempty" json:"gateway,omitempty"`
 
-	EntityType         string `yaml:"entity_type" json:"entity_type"`
-	VariableType       string `yaml:"variable_type,omitempty" json:"variable_type,omitempty"`
+	EntityType   string `yaml:"entity_type" json:"entity_type"`
+	VariableType string `yaml:"variable_type,omitempty" json:"variable_type,omitempty"`
 
-	ReadOnly           *bool  `yaml:"read_only,omitempty" json:"read_only,omitempty"`
-	WriteOnly          *bool  `yaml:"write_only,omitempty" json:"write_only,omitempty"`
+	ReadOnly  *bool `yaml:"read_only,omitempty" json:"read_only,omitempty"`
+	WriteOnly *bool `yaml:"write_only,omitempty" json:"write_only,omitempty"`
 
-	SyncPeriod         *time.Duration `yaml:"sync_period,omitempty" json:"sync_period,omitempty"`
-	SyncSplay          *time.Duration `yaml:"sync_splay,omitempty" json:"sync_splay,omitempty"`
+	SyncPeriod *time.Duration `yaml:"sync_period,omitempty" json:"sync_period,omitempty"`
+	SyncSplay  *time.Duration `yaml:"sync_splay,omitempty" json:"sync_splay,omitempty"`
 
 	AvailabilityWindow *time.Duration `yaml:"availability_window,omitempty" json:"availability_window,omitempty"`
 
-	InitialValue       string `yaml:"initial_value,omitempty" json:"initial_value,omitempty"`
+	InitialValue string `yaml:"initial_value,omitempty" json:"initial_value,omitempty"`
 
-	RequestAck         *bool          `yaml:"request_ack,omitempty" json:"request_ack,omitempty"`
-	AckTimeout         *time.Duration `yaml:"ack_timeout,omitempty" json:"ack_timeout,omitempty"`
-	AckRetries         *int           `yaml:"ack_retries,omitempty" json:"ack_retries,omitempty"`
+	RequestAck       *bool          `yaml:"request_ack,omitempty" json:"request_ack,omitempty"`
+	AckTimeout       *time.Duration `yaml:"ack_timeout,omitempty" json:"ack_timeout,omitempty"`
+	AckRetries       *int           `yaml:"ack_retries,omitempty" json:"ack_retries,omitempty"`
+	CommandSendCount *int           `yaml:"command_send_count,omitempty" json:"command_send_count,omitempty"`
 
 	// Discovery contains all HA MQTT discovery payload fields
-	Discovery          DiscoveryConfig `yaml:"discovery,omitempty" json:"discovery,omitempty"`
+	Discovery DiscoveryConfig `yaml:"discovery,omitempty" json:"discovery,omitempty"`
 }
 
 // DiscoveryConfig contains all fields that map to Home Assistant MQTT discovery payload keys.
 type DiscoveryConfig struct {
 	// Display & classification
-	Icon                       string `yaml:"icon,omitempty" json:"icon,omitempty"`
-	DeviceClass                string `yaml:"device_class,omitempty" json:"device_class,omitempty"`
-	EntityCategory             string `yaml:"entity_category,omitempty" json:"entity_category,omitempty"`
-	EntityPicture              string `yaml:"entity_picture,omitempty" json:"entity_picture,omitempty"`
-	EnabledByDefault           *bool  `yaml:"enabled_by_default,omitempty" json:"enabled_by_default,omitempty"`
+	Icon             string `yaml:"icon,omitempty" json:"icon,omitempty"`
+	DeviceClass      string `yaml:"device_class,omitempty" json:"device_class,omitempty"`
+	EntityCategory   string `yaml:"entity_category,omitempty" json:"entity_category,omitempty"`
+	EntityPicture    string `yaml:"entity_picture,omitempty" json:"entity_picture,omitempty"`
+	EnabledByDefault *bool  `yaml:"enabled_by_default,omitempty" json:"enabled_by_default,omitempty"`
 
 	// Sensor/number configuration
-	UnitOfMeasurement          string   `yaml:"unit_of_measurement,omitempty" json:"unit_of_measurement,omitempty"`
-	StateClass                 string   `yaml:"state_class,omitempty" json:"state_class,omitempty"`
-	SuggestedDisplayPrecision  *int     `yaml:"suggested_display_precision,omitempty" json:"suggested_display_precision,omitempty"`
-	ForceUpdate                *bool    `yaml:"force_update,omitempty" json:"force_update,omitempty"`
-	MinValue                   *float64 `yaml:"min_value,omitempty" json:"min_value,omitempty"`
-	MaxValue                   *float64 `yaml:"max_value,omitempty" json:"max_value,omitempty"`
-	Step                       *float64 `yaml:"step,omitempty" json:"step,omitempty"`
-	Options                    []string `yaml:"options,omitempty" json:"options,omitempty"`
-	Mode                       string   `yaml:"mode,omitempty" json:"mode,omitempty"`
-	Pattern                    string   `yaml:"pattern,omitempty" json:"pattern,omitempty"`
+	UnitOfMeasurement         string   `yaml:"unit_of_measurement,omitempty" json:"unit_of_measurement,omitempty"`
+	StateClass                string   `yaml:"state_class,omitempty" json:"state_class,omitempty"`
+	SuggestedDisplayPrecision *int     `yaml:"suggested_display_precision,omitempty" json:"suggested_display_precision,omitempty"`
+	ForceUpdate               *bool    `yaml:"force_update,omitempty" json:"force_update,omitempty"`
+	MinValue                  *float64 `yaml:"min_value,omitempty" json:"min_value,omitempty"`
+	MaxValue                  *float64 `yaml:"max_value,omitempty" json:"max_value,omitempty"`
+	Step                      *float64 `yaml:"step,omitempty" json:"step,omitempty"`
+	Options                   []string `yaml:"options,omitempty" json:"options,omitempty"`
+	Mode                      string   `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Pattern                   string   `yaml:"pattern,omitempty" json:"pattern,omitempty"`
 
 	// Availability
-	AvailabilityTopic          string `yaml:"availability_topic,omitempty" json:"availability_topic,omitempty"`
-	PayloadAvailable           string `yaml:"payload_available,omitempty" json:"payload_available,omitempty"`
-	PayloadNotAvailable        string `yaml:"payload_not_available,omitempty" json:"payload_not_available,omitempty"`
+	AvailabilityTopic   string `yaml:"availability_topic,omitempty" json:"availability_topic,omitempty"`
+	PayloadAvailable    string `yaml:"payload_available,omitempty" json:"payload_available,omitempty"`
+	PayloadNotAvailable string `yaml:"payload_not_available,omitempty" json:"payload_not_available,omitempty"`
 
 	// Switch/light/binary_sensor payloads
-	PayloadOn                  string `yaml:"payload_on,omitempty" json:"payload_on,omitempty"`
-	PayloadOff                 string `yaml:"payload_off,omitempty" json:"payload_off,omitempty"`
-	StateOn                    string `yaml:"state_on,omitempty" json:"state_on,omitempty"`
-	StateOff                   string `yaml:"state_off,omitempty" json:"state_off,omitempty"`
+	PayloadOn  string `yaml:"payload_on,omitempty" json:"payload_on,omitempty"`
+	PayloadOff string `yaml:"payload_off,omitempty" json:"payload_off,omitempty"`
+	StateOn    string `yaml:"state_on,omitempty" json:"state_on,omitempty"`
+	StateOff   string `yaml:"state_off,omitempty" json:"state_off,omitempty"`
 
 	// Cover payloads
-	PayloadOpen                string `yaml:"payload_open,omitempty" json:"payload_open,omitempty"`
-	PayloadClose               string `yaml:"payload_close,omitempty" json:"payload_close,omitempty"`
-	PayloadStop                string `yaml:"payload_stop,omitempty" json:"payload_stop,omitempty"`
-	StateOpen                  string `yaml:"state_open,omitempty" json:"state_open,omitempty"`
-	StateClosed                string `yaml:"state_closed,omitempty" json:"state_closed,omitempty"`
-	StateOpening               string `yaml:"state_opening,omitempty" json:"state_opening,omitempty"`
-	StateClosing               string `yaml:"state_closing,omitempty" json:"state_closing,omitempty"`
-	StateStopped               string `yaml:"state_stopped,omitempty" json:"state_stopped,omitempty"`
+	PayloadOpen  string `yaml:"payload_open,omitempty" json:"payload_open,omitempty"`
+	PayloadClose string `yaml:"payload_close,omitempty" json:"payload_close,omitempty"`
+	PayloadStop  string `yaml:"payload_stop,omitempty" json:"payload_stop,omitempty"`
+	StateOpen    string `yaml:"state_open,omitempty" json:"state_open,omitempty"`
+	StateClosed  string `yaml:"state_closed,omitempty" json:"state_closed,omitempty"`
+	StateOpening string `yaml:"state_opening,omitempty" json:"state_opening,omitempty"`
+	StateClosing string `yaml:"state_closing,omitempty" json:"state_closing,omitempty"`
+	StateStopped string `yaml:"state_stopped,omitempty" json:"state_stopped,omitempty"`
 
 	// MQTT transport
-	QOS                        *int  `yaml:"qos,omitempty" json:"qos,omitempty"`
-	Retain                     *bool `yaml:"retain,omitempty" json:"retain,omitempty"`
-	Optimistic                 *bool `yaml:"optimistic,omitempty" json:"optimistic,omitempty"`
+	QOS        *int  `yaml:"qos,omitempty" json:"qos,omitempty"`
+	Retain     *bool `yaml:"retain,omitempty" json:"retain,omitempty"`
+	Optimistic *bool `yaml:"optimistic,omitempty" json:"optimistic,omitempty"`
 
 	// Timing
-	OffDelay                   *int `yaml:"off_delay,omitempty" json:"off_delay,omitempty"`
-	ExpireAfter                *int `yaml:"expire_after,omitempty" json:"expire_after,omitempty"`
+	OffDelay    *int `yaml:"off_delay,omitempty" json:"off_delay,omitempty"`
+	ExpireAfter *int `yaml:"expire_after,omitempty" json:"expire_after,omitempty"`
 
 	// Templates
-	JSONAttributesTopic        string `yaml:"json_attributes_topic,omitempty" json:"json_attributes_topic,omitempty"`
-	JSONAttributesTemplate     string `yaml:"json_attributes_template,omitempty" json:"json_attributes_template,omitempty"`
-	StateValueTemplate         string `yaml:"state_value_template,omitempty" json:"state_value_template,omitempty"`
-	CommandTemplate            string `yaml:"command_template,omitempty" json:"command_template,omitempty"`
-	ValueTemplate              string `yaml:"value_template,omitempty" json:"value_template,omitempty"`
+	JSONAttributesTopic    string `yaml:"json_attributes_topic,omitempty" json:"json_attributes_topic,omitempty"`
+	JSONAttributesTemplate string `yaml:"json_attributes_template,omitempty" json:"json_attributes_template,omitempty"`
+	StateValueTemplate     string `yaml:"state_value_template,omitempty" json:"state_value_template,omitempty"`
+	CommandTemplate        string `yaml:"command_template,omitempty" json:"command_template,omitempty"`
+	ValueTemplate          string `yaml:"value_template,omitempty" json:"value_template,omitempty"`
 }
-
 
 func LoadConfig(filename string) (*Config, error) {
 	data, err := os.ReadFile(filename)
@@ -323,17 +323,17 @@ func ValidateConfig(config *Config) error {
 	// Validate entities
 	validEntityTypes := map[string]bool{
 		// Actuator types
-		"switch":       true,
-		"light":        true,
-		"dimmer":       true,
-		"cover":        true,
-		"text":         true,
-		"number":       true,
-		"select":       true,
-		"climate":      true,
-		"rgb_light":    true,
-		"rgbw_light":   true,
-		
+		"switch":     true,
+		"light":      true,
+		"dimmer":     true,
+		"cover":      true,
+		"text":       true,
+		"number":     true,
+		"select":     true,
+		"climate":    true,
+		"rgb_light":  true,
+		"rgbw_light": true,
+
 		// Sensor types
 		"sensor":        true,
 		"binary_sensor": true,
@@ -405,6 +405,10 @@ func ValidateConfig(config *Config) error {
 				return fmt.Errorf("invalid child_id for entity '%s' in device '%s': %w", entity.Name, device.Name, err)
 			}
 
+			if entity.CommandSendCount != nil && *entity.CommandSendCount < 1 {
+				return fmt.Errorf("invalid command_send_count for entity '%s' in device '%s': must be >= 1", entity.Name, device.Name)
+			}
+
 			// Add to unique target validation
 			effectiveNodeID, err := config.GetEffectiveEntityNodeID(&device, &entity)
 			if err != nil {
@@ -414,7 +418,7 @@ func ValidateConfig(config *Config) error {
 			target := fmt.Sprintf("%d:%d", effectiveNodeID, childID)
 			entityName := fmt.Sprintf("%s:%s", device.Name, entity.Name)
 			hasSyncEnabled := entity.IsSyncEnabled()
-			
+
 			entityTargets[target] = append(entityTargets[target], entityInfo{
 				name:           entityName,
 				hasSyncEnabled: hasSyncEnabled,
@@ -429,7 +433,7 @@ func ValidateConfig(config *Config) error {
 			syncEnabledCount := 0
 			var syncEnabledEntities []string
 			var allEntityNames []string
-			
+
 			for _, entity := range entities {
 				allEntityNames = append(allEntityNames, entity.name)
 				if entity.hasSyncEnabled {
@@ -437,7 +441,7 @@ func ValidateConfig(config *Config) error {
 					syncEnabledEntities = append(syncEnabledEntities, entity.name)
 				}
 			}
-			
+
 			// Allow duplicate mappings but restrict sync
 			if syncEnabledCount > 1 {
 				return fmt.Errorf("multiple entities with sync enabled detected for MySensors target %s: %v - at most one entity per target can have sync enabled", target, syncEnabledEntities)
@@ -454,7 +458,7 @@ func (config *Config) GetDefaultGatewayName() string {
 	for gatewayName := range config.MySensors {
 		return gatewayName
 	}
-	
+
 	// This should never happen if config validation passed
 	return ""
 }
@@ -495,6 +499,14 @@ func (config *Config) GetEffectiveAckRetries(entity *Entity) int {
 		return *entity.AckRetries
 	}
 	return 3 // Default: 3 retries (total ~1s with 250ms timeout)
+}
+
+// GetEffectiveCommandSendCount returns how many MySensors commands should be sent per MQTT command.
+func (config *Config) GetEffectiveCommandSendCount(entity *Entity) int {
+	if entity.CommandSendCount != nil {
+		return *entity.CommandSendCount
+	}
+	return 1
 }
 
 // ResolveID resolves a node_id or child_id which can be either an int or string alias
@@ -660,30 +672,30 @@ func GetMySensorsVariableTypeForOutput(outputType, variableTypeOverride string) 
 			"V_VA":                 mysensors.V_VA,
 			"V_POWER_FACTOR":       mysensors.V_POWER_FACTOR,
 		}
-		
+
 		if varType, exists := mapping[variableTypeOverride]; exists {
 			return varType, true
 		}
 	}
-	
+
 	// Default mappings based on output type
 	defaultMapping := map[string]mysensors.VariableType{
-		"switch":      mysensors.V_STATUS,
-		"light":       mysensors.V_STATUS,
-		"dimmer":      mysensors.V_PERCENTAGE,
-		"cover":       mysensors.V_UP, // Cover uses V_UP/V_DOWN/V_STOP
-		"text":        mysensors.V_TEXT,
-		"number":      mysensors.V_PERCENTAGE,
-		"select":      mysensors.V_TEXT,
-		"climate":     mysensors.V_HVAC_SETPOINT_HEAT,
-		"rgb_light":   mysensors.V_RGB,
-		"rgbw_light":  mysensors.V_RGBW,
+		"switch":     mysensors.V_STATUS,
+		"light":      mysensors.V_STATUS,
+		"dimmer":     mysensors.V_PERCENTAGE,
+		"cover":      mysensors.V_UP, // Cover uses V_UP/V_DOWN/V_STOP
+		"text":       mysensors.V_TEXT,
+		"number":     mysensors.V_PERCENTAGE,
+		"select":     mysensors.V_TEXT,
+		"climate":    mysensors.V_HVAC_SETPOINT_HEAT,
+		"rgb_light":  mysensors.V_RGB,
+		"rgbw_light": mysensors.V_RGBW,
 	}
-	
+
 	if varType, exists := defaultMapping[outputType]; exists {
 		return varType, true
 	}
-	
+
 	// Default to V_STATUS for unknown types
 	return mysensors.V_STATUS, false
 }
@@ -864,26 +876,26 @@ func GetMySensorsVariableTypeForEntity(entityType, variableTypeOverride string) 
 			"V_VA":                 mysensors.V_VA,
 			"V_POWER_FACTOR":       mysensors.V_POWER_FACTOR,
 		}
-		
+
 		if varType, exists := mapping[variableTypeOverride]; exists {
 			return varType, true
 		}
 	}
-	
+
 	// Default mappings based on entity type
 	defaultMapping := map[string]mysensors.VariableType{
 		// Actuator types
-		"switch":       mysensors.V_STATUS,
-		"light":        mysensors.V_STATUS,
-		"dimmer":       mysensors.V_PERCENTAGE,
-		"cover":        mysensors.V_UP, // Cover uses V_UP/V_DOWN/V_STOP
-		"text":         mysensors.V_TEXT,
-		"number":       mysensors.V_PERCENTAGE,
-		"select":       mysensors.V_TEXT,
-		"climate":      mysensors.V_HVAC_SETPOINT_HEAT,
-		"rgb_light":    mysensors.V_RGB,
-		"rgbw_light":   mysensors.V_RGBW,
-		
+		"switch":     mysensors.V_STATUS,
+		"light":      mysensors.V_STATUS,
+		"dimmer":     mysensors.V_PERCENTAGE,
+		"cover":      mysensors.V_UP, // Cover uses V_UP/V_DOWN/V_STOP
+		"text":       mysensors.V_TEXT,
+		"number":     mysensors.V_PERCENTAGE,
+		"select":     mysensors.V_TEXT,
+		"climate":    mysensors.V_HVAC_SETPOINT_HEAT,
+		"rgb_light":  mysensors.V_RGB,
+		"rgbw_light": mysensors.V_RGBW,
+
 		// Sensor types (from existing GetMySensorsVariableType function)
 		"binary_sensor": mysensors.V_STATUS,
 		"sensor":        mysensors.V_CUSTOM, // Default sensor type
@@ -918,11 +930,11 @@ func GetMySensorsVariableTypeForEntity(entityType, variableTypeOverride string) 
 		"direction":     mysensors.V_DIRECTION,
 		"impedance":     mysensors.V_IMPEDANCE,
 	}
-	
+
 	if varType, exists := defaultMapping[entityType]; exists {
 		return varType, true
 	}
-	
+
 	// Default to V_STATUS for unknown types
 	return mysensors.V_STATUS, false
 }
@@ -1034,7 +1046,7 @@ func SetDefaults(config *Config) {
 		// Set defaults for entities
 		for j := range config.Devices[i].Entities {
 			entity := &config.Devices[i].Entities[j]
-			
+
 			// Set default initial values based on entity type
 			if entity.InitialValue == "" {
 				switch entity.EntityType {
@@ -1048,7 +1060,7 @@ func SetDefaults(config *Config) {
 					entity.InitialValue = "0"
 				}
 			}
-			
+
 			// Set default units and state class based on entity type
 			d := &entity.Discovery
 			switch entity.EntityType {
@@ -1149,6 +1161,12 @@ func SetDefaults(config *Config) {
 			if entity.RequestAck == nil {
 				requestAck := true
 				entity.RequestAck = &requestAck
+			}
+
+			// Default command fanout to one MySensors message per MQTT change.
+			if entity.CommandSendCount == nil {
+				commandSendCount := 1
+				entity.CommandSendCount = &commandSendCount
 			}
 		}
 	}

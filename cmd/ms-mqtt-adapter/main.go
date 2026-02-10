@@ -39,7 +39,7 @@ func main() {
 	}
 
 	logger, logBroadcast := events.NewBroadcastLogger(cfg.LogLevel, os.Stdout)
-	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.14")
+	logger.Info("Starting ms-mqtt-adapter", "version", "3.0.16")
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -95,7 +95,7 @@ type Application struct {
 	retryMu             sync.RWMutex
 
 	// ACK tracking for entities with request_ack enabled
-	pendingAcks   map[string]*PendingAck  // pendingKey (compositeKey_timestamp) -> pending ACK
+	pendingAcks   map[string]*PendingAck // pendingKey (compositeKey_timestamp) -> pending ACK
 	pendingAcksMu sync.Mutex
 
 	// Per-entity generation counter - incremented on each new command, used to stop retries
@@ -105,8 +105,8 @@ type Application struct {
 
 // --- StatusProvider interface implementation ---
 
-func (app *Application) GetConfig() *config.Config     { return app.config }
-func (app *Application) GetConfigPath() string          { return app.configPath }
+func (app *Application) GetConfig() *config.Config { return app.config }
+func (app *Application) GetConfigPath() string     { return app.configPath }
 
 func (app *Application) GetMQTTStatus() api.MQTTStatus {
 	connected := false
@@ -799,26 +799,49 @@ func (app *Application) handleMQTTStateChanges() {
 
 				// Check if ACK is requested for this entity
 				requestAck := app.config.GetEffectiveEntityRequestAck(&currentEntity)
+				optimistic := false
+				if currentEntity.Discovery.Optimistic != nil {
+					optimistic = *currentEntity.Discovery.Optimistic
+				}
+				commandSendCount := app.config.GetEffectiveCommandSendCount(&currentEntity)
 
 				if requestAck {
 					// Send with ACK handling (timeout/retry)
-					app.sendWithAck(compositeKey, gatewayName, gatewayTransport, nodeID, childID, varType, state, &currentEntity)
+					for i := 0; i < commandSendCount; i++ {
+						app.sendWithAck(compositeKey, gatewayName, gatewayTransport, nodeID, childID, varType, state, &currentEntity)
+					}
 				} else {
-					// Fire and forget (original behavior)
-					message := mysensors.NewSetMessageWithAck(nodeID, childID, varType, state, false)
-					app.logger.Info("Sending MySensors entity command", "gateway", gatewayName, "message", message.String())
+					// Fire and forget (original behavior), with optional repeat fanout.
+					successfulSend := false
+					for i := 0; i < commandSendCount; i++ {
+						message := mysensors.NewSetMessageWithAck(nodeID, childID, varType, state, false)
+						app.logger.Info("Sending MySensors entity command",
+							"gateway", gatewayName, "message", message.String(), "send_index", i+1, "send_total", commandSendCount)
 
-					if err := gatewayTransport.Send(message); err != nil {
-						app.logger.Error("Failed to send entity state change to MySensors", "gateway", gatewayName, "error", err,
-							"device", deviceName, "entity", componentName, "state", state)
-					} else {
+						if err := gatewayTransport.Send(message); err != nil {
+							app.logger.Error("Failed to send entity state change to MySensors", "gateway", gatewayName, "error", err,
+								"device", deviceName, "entity", componentName, "state", state, "send_index", i+1, "send_total", commandSendCount)
+							continue
+						}
+
+						successfulSend = true
 						app.logger.Info("MySensors entity command sent successfully", "gateway", gatewayName, "device", deviceName, "entity", componentName,
-							"node_id", nodeID, "child_id", childID, "state", state, "message", message.String())
+							"node_id", nodeID, "child_id", childID, "state", state, "message", message.String(),
+							"send_index", i+1, "send_total", commandSendCount)
 
 						// Publish to traffic monitor and TCP clients
 						app.publishMySensorsTraffic(gatewayName, "tx", message)
 						if tcpServer, exists := app.tcpServers[gatewayName]; exists {
 							tcpServer.BroadcastMessage(message)
+						}
+					}
+
+					// If non-optimistic mode does not require ACK, publish state after at least one successful send.
+					// This decouples MQTT state updates from MySensors ACK dependency.
+					if successfulSend && !optimistic {
+						if err := app.mqttClient.PublishEntityState(currentDevice, currentEntity, state); err != nil {
+							app.logger.Error("Failed to publish entity state after non-ACK command send", "error", err,
+								"device", deviceName, "entity", componentName, "state", state)
 						}
 					}
 				}
@@ -1091,10 +1114,10 @@ func (app *Application) availabilityMonitor(ctx context.Context) {
 			// Check availability for each gateway
 			for gatewayName, gw := range app.gateways {
 				availabilityStatus := gw.GetAllNodeAvailabilityStatus()
-				
+
 				// Log the current availability status for debugging
 				app.logger.Debug("Current availability status", "gateway", gatewayName, "status", availabilityStatus)
-				
+
 				// For each device, check if its node is available and publish to availability topic
 				for _, device := range app.config.Devices {
 					// Skip devices that don't use this gateway
@@ -1103,14 +1126,14 @@ func (app *Application) availabilityMonitor(ctx context.Context) {
 					if deviceGatewayName != gatewayName {
 						continue
 					}
-					
+
 					// Get the effective node ID for this device
 					_, err := app.config.GetEffectiveNodeID(&device)
 					if err != nil {
 						app.logger.Debug("Device has no node ID, skipping availability check", "device", device.Name)
 						continue
 					}
-					
+
 					// For each entity in the device, publish availability status
 					for _, entity := range device.Entities {
 						// Determine the effective node ID for this entity
@@ -1119,33 +1142,33 @@ func (app *Application) availabilityMonitor(ctx context.Context) {
 							app.logger.Debug("Entity has no node ID, skipping availability check", "device", device.Name, "entity", entity.Name)
 							continue
 						}
-						
+
 						// Skip if this entity doesn't use the current gateway
 						entityGatewayName := app.config.GetEffectiveGateway(device.Gateway, entity.Gateway)
 						app.logger.Debug("Checking entity gateway", "device", device.Name, "entity", entity.Name, "device_gateway", device.Gateway, "entity_gateway", entity.Gateway, "effective_gateway", entityGatewayName, "current_gateway", gatewayName)
 						if entityGatewayName != gatewayName {
 							continue
 						}
-						
+
 						// Only publish availability for entities that can report state or receive commands
 						if !entity.CanReportState() && !entity.CanReceiveCommands() {
 							continue
 						}
-						
+
 						// Create availability topic for this entity
 						uniqueID := entity.GetEffectiveUniqueID(device.ID)
 						availabilityTopic := fmt.Sprintf("%s/entity/%s/availability", app.config.AdapterTopics.TopicPrefix, uniqueID)
-						
+
 						// Determine availability status
 						isAvailable := availabilityStatus[effectiveNodeID]
 						payload := "offline"
 						if isAvailable {
 							payload = "online"
 						}
-						
+
 						// Debug information
 						app.logger.Debug("Availability check details", "gateway", gatewayName, "device", device.Name, "entity", entity.Name, "node_id", effectiveNodeID, "is_available", isAvailable)
-						
+
 						// Publish availability status
 						if err := app.mqttClient.Publish(availabilityTopic, payload, true); err != nil {
 							app.logger.Error("Failed to publish availability status", "gateway", gatewayName, "device", device.Name, "entity", entity.Name, "error", err)
